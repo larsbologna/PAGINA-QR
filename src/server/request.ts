@@ -16,3 +16,14 @@ export function clientIpFrom(h: Headers): string {
 export async function clientIp(): Promise<string> {
   return clientIpFrom(await headers());
 }
+
+/** Protección CSRF para endpoints POST: el Origin (si viene) debe coincidir con el Host. */
+export function isSameOrigin(h: Headers): boolean {
+  const origin = h.get("origin");
+  if (!origin) return h.get("sec-fetch-site") !== "cross-site";
+  try {
+    return new URL(origin).host === h.get("host");
+  } catch {
+    return false;
+  }
+}

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
@@ -15,9 +16,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "superadmin:create": "tsx scripts/create-superadmin.ts",
-    "demo:seed": "tsx scripts/seed-demo.ts",
-    "retention:run": "tsx scripts/run-retention.ts"
+    "superadmin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/create-superadmin.ts",
+    "demo:seed": "tsx --conditions=react-server --env-file-if-exists=.env scripts/seed-demo.ts",
+    "retention:run": "tsx --conditions=react-server --env-file-if-exists=.env scripts/run-retention.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

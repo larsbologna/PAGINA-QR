@@ -2,27 +2,10 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { config } from "../config";
 import { validateSessionToken, type SessionUser } from "./sessions";
 import { resolveBusinessAccess, type BusinessAccess } from "./access";
 
 export const SESSION_COOKIE = "ros_session";
-
-export async function setSessionCookie(token: string, expiresAt: Date) {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: config.secureCookies,
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-  });
-}
-
-export async function clearSessionCookie() {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE);
-}
 
 export async function readSessionToken(): Promise<string | undefined> {
   return (await cookies()).get(SESSION_COOKIE)?.value;

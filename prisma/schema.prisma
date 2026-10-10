@@ -73,6 +73,7 @@ model User {
   reviewedFeedback   Feedback[]       @relation("FeedbackReviewer")
   auditLogs          AuditLog[]
   invitationsCreated Invitation[]
+  passwordResets     PasswordReset[]
 
   @@map("users")
 }
@@ -90,6 +91,21 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Enlace de un solo uso para elegir una contraseña nueva (lo genera el superadministrador).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 del token; el enlace se muestra una sola vez.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_resets")
 }
 
 model Business {

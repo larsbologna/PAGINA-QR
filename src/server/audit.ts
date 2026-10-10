@@ -8,6 +8,7 @@ export type AuditAction =
   | "auth.login_failed"
   | "auth.logout"
   | "auth.password_changed"
+  | "auth.password_reset_created"
   | "business.created"
   | "business.updated"
   | "business.branding_updated"
