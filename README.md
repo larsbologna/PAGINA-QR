@@ -10,6 +10,24 @@ El nombre "Reputación OS" se cambia con la variable `PRODUCT_NAME`.
 
 ---
 
+## Inicio rápido en Windows (sin instalar nada más)
+
+Solo necesitás **Node.js** (versión LTS, de <https://nodejs.org>).
+
+1. Descargá el proyecto (botón verde **Code → Download ZIP** en GitHub) y descomprimilo.
+2. Abrí la carpeta, escribí `cmd` en la barra de direcciones y apretá Enter. En esa ventana ejecutá:
+   ```
+   npm install
+   ```
+3. Hacé doble clic en **`iniciar.bat`**.
+
+La primera vez tarda unos minutos: crea una base de datos local en la carpeta `.datos`, el usuario superadministrador y el negocio DEMO, y compila la web. Al terminar se abre el navegador. **Los usuarios y contraseñas quedan en `CREDENCIALES.txt`.**
+
+- Para cerrar: cerrá la ventana negra (o Ctrl+C). Para apagar también la base de datos: `detener.bat`.
+- Las próximas veces, doble clic en `iniciar.bat` y listo (arranca en segundos).
+- No hace falta Docker ni instalar PostgreSQL: viene incluido como paquete de npm (`embedded-postgres`). Funciona también en macOS y Linux con `node scripts/iniciar.mjs`.
+- Esto es para usar o mostrar el sistema en tu computadora. Para que los clientes escaneen el QR desde su celular, hay que publicarlo en internet (ver [Producción y despliegue](#producción-y-despliegue)).
+
 ## Índice
 
 1. [Funcionalidades](#funcionalidades)
