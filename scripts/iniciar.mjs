@@ -95,11 +95,19 @@ async function startPostgres(bin, secrets) {
     return;
   }
   if (!(await portFree(PG_PORT))) fallar(`El puerto ${PG_PORT} está ocupado por otro programa. Cerralo y volvé a intentar.`);
-  const r = run(bin.pg_ctl, [
-    "-D", PG_DIR, "-l", PG_LOG, "-w", "-t", "60",
-    "-o", `-p ${PG_PORT} -c listen_addresses=localhost`, "start",
-  ]);
-  if (r.code !== 0) fallar("No se pudo iniciar PostgreSQL.", `${r.out}\n${fs.existsSync(PG_LOG) ? fs.readFileSync(PG_LOG, "utf-8") : ""}`);
+  console.log("      Iniciando PostgreSQL…");
+  // stdio "ignore": en Windows el proceso postgres hereda las tuberías de pg_ctl
+  // y, si fueran "pipe", Node esperaría para siempre a que se cierren.
+  // La salida queda en .datos/postgres.log.
+  const r = spawnSync(
+    bin.pg_ctl,
+    ["-D", PG_DIR, "-l", PG_LOG, "-w", "-t", "60", "-o", `-p ${PG_PORT} -c listen_addresses=localhost`, "start"],
+    { cwd: ROOT, stdio: "ignore", timeout: 90_000, windowsHide: true },
+  );
+  if (r.status !== 0) {
+    const log = fs.existsSync(PG_LOG) ? fs.readFileSync(PG_LOG, "utf-8") : "";
+    fallar("No se pudo iniciar PostgreSQL.", `${r.error?.message ?? ""}\n${log}`);
+  }
   ok(`PostgreSQL iniciado (puerto ${PG_PORT})`);
 }
 
