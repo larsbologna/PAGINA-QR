@@ -1,0 +1,16 @@
+# PostgreSQL local para desarrollo (opcional si ya tenés PostgreSQL instalado).
+#   docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: reputacion
+      POSTGRES_PASSWORD: reputacion
+      POSTGRES_DB: reputacion
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/sql/init-test-dbs.sql:/docker-entrypoint-initdb.d/init-test-dbs.sql:ro
+volumes:
+  pgdata:
