@@ -11,13 +11,13 @@ jobs:
     services:
       postgres:
         image: postgres:16
+        # Superusuario solo para inicializar; la app usa el rol "reputacion" sin BYPASSRLS.
         env:
-          POSTGRES_USER: reputacion
-          POSTGRES_PASSWORD: reputacion
-          POSTGRES_DB: reputacion
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U reputacion" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://reputacion:reputacion@localhost:5432/reputacion?schema=public
       TEST_DATABASE_URL: postgresql://reputacion:reputacion@localhost:5432/reputacion_test?schema=public
@@ -25,14 +25,13 @@ jobs:
       APP_URL: http://localhost:3000
       APP_SECRET: ci-secret-0123456789abcdef
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-      - name: Crear bases de prueba
-        run: |
-          PGPASSWORD=reputacion psql -h localhost -U reputacion -d reputacion -f scripts/sql/init-test-dbs.sql
+      - name: Crear rol de la app (sin BYPASSRLS) y bases
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/sql/init-local.sql
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck

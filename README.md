@@ -132,14 +132,13 @@ npm run dev
 
 Abrí <http://localhost:3000/login>.
 
-Si no usás Docker, creá un usuario y las bases a mano:
+Si no usás Docker, ejecutá el mismo script como superusuario:
 
-```sql
-CREATE USER reputacion WITH PASSWORD 'reputacion' CREATEDB;
-CREATE DATABASE reputacion OWNER reputacion;
-CREATE DATABASE reputacion_test OWNER reputacion;  -- pruebas de integración
-CREATE DATABASE reputacion_e2e OWNER reputacion;   -- pruebas E2E
+```bash
+psql -U postgres -f scripts/sql/init-local.sql
 ```
+
+Crea el rol `reputacion` (**sin** `SUPERUSER` ni `BYPASSRLS`) y las bases `reputacion`, `reputacion_test` y `reputacion_e2e`. No conectes la app con el usuario `postgres`: un superusuario ignora el aislamiento entre negocios y las pruebas de aislamiento lo detectan y fallan a propósito.
 
 ---
 
