@@ -159,7 +159,9 @@ describe("Progreso: clics a Google y opiniones para mejorar", () => {
     await withSystem((tx) => tx.business.update({ where: { id: b.id }, data: { googleReviewUrl: "https://g.page/r/x/review" } }));
     for (let i = 0; i < 7; i++) await recordGoogleClick(b.slug, "ip-1");
     await recordGoogleClick(b.slug, "ip-2");
-    const s = await getDashboardStats({ ...b }, 30);
+    // "Ahora" un segundo después: el período actual excluye el instante exacto del cálculo,
+    // y en máquinas rápidas el último clic puede caer en ese mismo milisegundo.
+    const s = await getDashboardStats({ ...b }, 30, new Date(Date.now() + 1000));
     expect(s.googleClicks).toEqual({ current: 6, previous: 0 }); // 5 de ip-1 (límite) + 1 de ip-2
     expect(await recordGoogleClick("no-existe", "ip-3")).toBe(false);
 
@@ -172,6 +174,6 @@ describe("Progreso: clics a Google y opiniones para mejorar", () => {
       { rating: 3, daysAgo: 4, status: "REVIEWED" },
     ]);
     expect(await topReasons(b.id, 30)).toEqual([{ id: espera.id, name: "Tiempo de espera", count: 2 }]); // la de 5 ★ no cuenta
-    expect((await getDashboardStats(b, 30)).pendingToImprove).toBe(2);
+    expect((await getDashboardStats(b, 30, new Date(Date.now() + 1000))).pendingToImprove).toBe(2);
   });
 });
