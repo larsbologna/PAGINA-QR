@@ -23,6 +23,7 @@ Solo necesitás **Node.js** (versión LTS, de <https://nodejs.org>).
 
 La primera vez tarda unos minutos: crea una base de datos local en la carpeta `.datos`, el usuario superadministrador y el negocio DEMO, y compila la web. Al terminar se abre el navegador. **Los usuarios y contraseñas quedan en `CREDENCIALES.txt`.**
 
+- **Desde el celular:** la ventana muestra la dirección de tu computadora en la red (por ejemplo `http://192.168.0.15:3000`) y un QR para escanear. El celular tiene que estar en la **misma WiFi**. Si no abre, permití "Node.js" en redes privadas cuando Windows lo pregunte (Firewall). Los QR que descargues del panel también apuntan a esa dirección, así que sirven para probar en el local con celulares en la misma red. Para clientes reales, publicá la web con un dominio (ver Producción). Con `LOCAL_ONLY=1` se desactiva el acceso desde la red.
 - Para cerrar: cerrá la ventana negra (o Ctrl+C). Para apagar también la base de datos: `detener.bat`.
 - Las próximas veces, doble clic en `iniciar.bat` y listo (arranca en segundos).
 - No hace falta Docker ni instalar PostgreSQL: viene incluido como paquete de npm (`embedded-postgres`). Funciona también en macOS y Linux con `node scripts/iniciar.mjs`.

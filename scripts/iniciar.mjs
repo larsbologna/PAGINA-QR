@@ -195,6 +195,35 @@ function openBrowser(url) {
   else spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
 }
 
+/**
+ * Dirección de esta computadora en la red local (WiFi/cable), para abrir la web
+ * desde un celular conectado a la misma red. Prefiere rangos privados y evita
+ * adaptadores virtuales (WSL, Hyper-V, VirtualBox, VMware, Docker).
+ */
+function lanAddress() {
+  const virtual = /vethernet|virtualbox|vmware|wsl|hyper-v|docker|loopback|vbox|tailscale|zerotier/i;
+  const candidates = [];
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    for (const a of addrs ?? []) {
+      if (a.family !== "IPv4" || a.internal || a.address.startsWith("169.254.")) continue;
+      const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a.address);
+      const score = (isPrivate ? 2 : 0) + (virtual.test(name) ? 0 : 1) + (a.address.startsWith("192.168.") ? 1 : 0);
+      candidates.push({ address: a.address, score });
+    }
+  }
+  candidates.sort((x, y) => y.score - x.score);
+  return candidates[0]?.address ?? null;
+}
+
+async function printQr(url) {
+  try {
+    const QRCode = (await import("qrcode")).default;
+    console.log(await QRCode.toString(url, { type: "terminal", small: true, errorCorrectionLevel: "L" }));
+  } catch {
+    /* si la consola no puede dibujarlo, alcanza con la dirección escrita */
+  }
+}
+
 async function waitForHttp(url, timeoutMs) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
@@ -226,7 +255,13 @@ async function main() {
 
   let appPort = 3000;
   while (!(await portFree(appPort)) && appPort < 3010) appPort++;
-  const appUrl = `http://localhost:${appPort}`;
+  const localUrl = `http://localhost:${appPort}`;
+  // LOCAL_ONLY=1 desactiva el acceso desde otros dispositivos de la red.
+  const lanIp = process.env.LOCAL_ONLY === "1" ? null : lanAddress();
+  const lanUrl = lanIp ? `http://${lanIp}:${appPort}` : null;
+  // APP_URL define a dónde apuntan los QR que se descargan del panel: con la
+  // dirección de la red, funcionan desde cualquier celular conectado a la misma WiFi.
+  const appUrl = lanUrl ?? localUrl;
   // Las variables del proceso tienen prioridad sobre .env.
   const env = { ...process.env, DATABASE_URL: dbUrl, APP_URL: appUrl };
   delete env.NODE_ENV; // next build/start lo definen solos
@@ -251,7 +286,8 @@ async function main() {
         "REPUTACIÓN OS · ACCESOS LOCALES",
         "(Guardá este archivo en un lugar seguro. Solo sirve en esta computadora.)",
         "",
-        `Ingreso:            ${appUrl}/login`,
+        `Ingreso desde esta computadora: ${localUrl}/login`,
+        "Desde el celular (misma WiFi): usá la dirección que muestra la ventana de iniciar.bat.",
         "",
         "Superadministrador (panel maestro)",
         `  Email:      ${adminEmail}`,
@@ -261,7 +297,7 @@ async function main() {
         "  Email:      demo@reputacion-os.local",
         `  Contraseña: ${demoPassword}`,
         "",
-        `Página pública demo: ${appUrl}/r/demo-cafe-la-esquina`,
+        `Página pública demo: ${localUrl}/r/demo-cafe-la-esquina`,
         "",
       ].join("\r\n"),
     );
@@ -288,7 +324,8 @@ async function main() {
   }
 
   paso(6, "Iniciando");
-  const server = spawn(process.execPath, [BIN.next, "start", "-p", String(appPort)], {
+  // -H 0.0.0.0: escucha también en la red local, no solo en esta computadora.
+  const server = spawn(process.execPath, [BIN.next, "start", "-p", String(appPort), "-H", lanUrl ? "0.0.0.0" : "localhost"], {
     cwd: ROOT,
     env: { ...env, NEXT_TELEMETRY_DISABLED: "1" },
     // La salida normal se descarta (si se capturara sin leerla, podría frenar el servidor);
@@ -308,13 +345,26 @@ async function main() {
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 
-  if (!(await waitForHttp(`${appUrl}/login`, 60_000))) fallar("La web no respondió a tiempo.");
+  if (!(await waitForHttp(`${localUrl}/login`, 60_000))) fallar("La web no respondió a tiempo.");
   console.log("\n══════════════════════════════════════════");
-  console.log(`  ✔ Listo: ${appUrl}/login`);
+  console.log(`  ✔ Listo`);
+  console.log(`  En esta computadora:  ${localUrl}/login`);
+  if (lanUrl) {
+    console.log(`  Desde el celular:     ${lanUrl}`);
+    console.log("  (el celular tiene que estar conectado a la MISMA WiFi que esta computadora)");
+  }
   console.log(`  Usuarios y contraseñas: ${CREDENTIALS_FILE}`);
   console.log("  Para cerrar: Ctrl+C o cerrá esta ventana.");
   console.log("══════════════════════════════════════════\n");
-  openBrowser(`${appUrl}/login`);
+  if (lanUrl) {
+    console.log("  Escaneá este QR con el celular para abrir la página pública de la demo:\n");
+    await printQr(`${lanUrl}/r/demo-cafe-la-esquina`);
+    if (IS_WIN) {
+      console.log("  Si el celular no abre la página: cuando Windows pregunte, permití el acceso de");
+      console.log('  "Node.js" en redes PRIVADAS (o revisá el Firewall de Windows).\n');
+    }
+  }
+  openBrowser(`${localUrl}/login`);
 }
 
 function stopPostgres(bin) {
