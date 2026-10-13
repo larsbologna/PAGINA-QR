@@ -28,6 +28,10 @@ export interface DashboardStats {
   last7: number;
   last30: number;
   unreviewed: number;
+  /** Clics en "Dejar reseña en Google" en el período actual y el anterior. */
+  googleClicks: { current: number; previous: number };
+  /** Opiniones de 1 a 4 estrellas sin revisar (para la sección "Para mejorar"). */
+  pendingToImprove: number;
   current: PeriodSummary;
   previous: PeriodSummary;
   unit: BucketUnit;
@@ -69,13 +73,16 @@ export async function getDashboardStats(b: BusinessRef, days: number, now = new 
   const DAY = 24 * 3600 * 1000;
 
   return withTenant(b.id, async (tx) => {
-    const [cur, prev, totalAllTime, last7, last30, unreviewed] = await Promise.all([
+    const [cur, prev, totalAllTime, last7, last30, unreviewed, clicksCur, clicksPrev, pendingToImprove] = await Promise.all([
       summarize(tx, b, current),
       summarize(tx, b, previous),
       tx.feedback.count({ where: { businessId: b.id } }),
       tx.feedback.count({ where: { businessId: b.id, createdAt: { gte: new Date(now.getTime() - 7 * DAY), lt: now } } }),
       tx.feedback.count({ where: { businessId: b.id, createdAt: { gte: new Date(now.getTime() - 30 * DAY), lt: now } } }),
       tx.feedback.count({ where: { businessId: b.id, status: "NEW" } }),
+      tx.googleClick.count({ where: { businessId: b.id, createdAt: { gte: current.from, lt: current.to } } }),
+      tx.googleClick.count({ where: { businessId: b.id, createdAt: { gte: previous.from, lt: previous.to } } }),
+      tx.feedback.count({ where: { businessId: b.id, status: "NEW", rating: { lte: 4 } } }),
     ]);
 
     // Serie temporal agrupada en la zona horaria del negocio.
@@ -139,6 +146,8 @@ export async function getDashboardStats(b: BusinessRef, days: number, now = new 
       last7,
       last30,
       unreviewed,
+      googleClicks: { current: clicksCur, previous: clicksPrev },
+      pendingToImprove,
       current: cur,
       previous: prev,
       unit,

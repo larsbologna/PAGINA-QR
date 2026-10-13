@@ -195,10 +195,6 @@ export async function addFeedbackNote(businessId: string, feedbackId: string, us
   });
 }
 
-export async function countUnreviewed(businessId: string) {
-  return withTenant(businessId, (tx) => tx.feedback.count({ where: { businessId, status: "NEW" } }));
-}
-
 export async function feedbackForExport(businessId: string, f: FeedbackFilters) {
   return withTenant(businessId, (tx) =>
     tx.feedback.findMany({
@@ -211,4 +207,38 @@ export async function feedbackForExport(businessId: string, f: FeedbackFilters) 
       },
     }),
   );
+}
+
+/**
+ * Registra que alguien tocó "Dejar reseña en Google". No guarda datos de la
+ * persona. Con límite por conexión para que no se pueda inflar la métrica.
+ */
+export async function recordGoogleClick(slugRaw: string, ipIdentifier: string): Promise<boolean> {
+  const slug = String(slugRaw ?? "").toLowerCase().slice(0, 80);
+  const business = await prisma.business.findUnique({ where: { slug }, select: { id: true, status: true, googleReviewUrl: true } });
+  if (!business || business.status !== "ACTIVE" || !business.googleReviewUrl) return false;
+  if (!(await consumeRateLimit(`google-click:${business.id}`, ipIdentifier, 5, 3600 * 1000))) return false;
+  await withTenant(business.id, (tx) => tx.googleClick.create({ data: { businessId: business.id } }));
+  return true;
+}
+
+/** Motivos (categorías) más elegidos en opiniones de hasta `maxRating` estrellas. */
+export async function topReasons(businessId: string, days: number, maxRating = 4, limit = 6) {
+  const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+  return withTenant(businessId, async (tx) => {
+    const rows = await tx.feedbackCategorySelection.groupBy({
+      by: ["categoryId"],
+      where: { businessId, feedback: { createdAt: { gte: since }, rating: { lte: maxRating } } },
+      _count: { _all: true },
+    });
+    const top = rows.sort((a, b) => b._count._all - a._count._all).slice(0, limit);
+    const cats = await tx.feedbackCategory.findMany({ where: { businessId, id: { in: top.map((t) => t.categoryId) } }, select: { id: true, name: true } });
+    const names = new Map(cats.map((c) => [c.id, c.name]));
+    return top.map((t) => ({ id: t.categoryId, name: names.get(t.categoryId) ?? "—", count: t._count._all }));
+  });
+}
+
+/** Opiniones de 1 a 4 estrellas todavía sin resolver (insignia del menú "Para mejorar"). */
+export async function countPendingToImprove(businessId: string) {
+  return withTenant(businessId, (tx) => tx.feedback.count({ where: { businessId, status: "NEW", rating: { lte: 4 } } }));
 }

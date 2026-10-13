@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info, MessageSquareText, QrCode } from "lucide-react";
+import { ArrowRight, FileText, MessageSquareText, QrCode } from "lucide-react";
 import { getBusinessAccess } from "@/server/auth/current";
 import { getDashboardStats } from "@/server/services/stats";
+import { topReasons } from "@/server/services/feedback";
 import { config } from "@/server/config";
 import { parsePeriod } from "@/lib/periods";
-import { formatNumber, plural } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,26 +14,26 @@ import { ButtonLink } from "@/components/ui/button";
 import { StatCard, Delta } from "@/components/dashboard/stat-card";
 import { PeriodTabs } from "@/components/dashboard/period-tabs";
 import { TrendSection } from "@/components/dashboard/trend-section";
-import { DistributionBars } from "@/components/charts/distribution";
+import { InsightList } from "@/components/dashboard/insight-list";
 import { SentimentBar } from "@/components/charts/sentiment";
 import { CategoryBars } from "@/components/charts/category-bars";
 
-export const metadata: Metadata = { title: "Resumen" };
+export const metadata: Metadata = { title: "Progreso" };
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function SummaryPage({ params, searchParams }: Props) {
+export default async function ProgressPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const period = parsePeriod((await searchParams).periodo);
   const { access } = await getBusinessAccess(slug);
   const b = access.business;
-  const s = await getDashboardStats(b, period.days);
+  const [s, reasons] = await Promise.all([getDashboardStats(b, period.days), topReasons(b.id, period.days, 4, 5)]);
   const base = `/panel/${b.slug}`;
 
   if (s.totalAllTime === 0) {
     return (
       <>
-        <PageHeader title="Resumen" />
+        <PageHeader title="Tu progreso" />
         <Card>
           <EmptyState
             icon={MessageSquareText}
@@ -43,49 +44,31 @@ export default async function SummaryPage({ params, searchParams }: Props) {
               </ButtonLink>
             }
           >
-            Imprimí el QR y colocalo en un lugar visible: mostrador, mesas o la caja. Las opiniones aparecerán acá apenas lleguen.
+            Imprimí el QR y colocalo en un lugar visible: mostrador, mesas o la caja. Tu progreso va a aparecer acá apenas lleguen las primeras opiniones.
           </EmptyState>
         </Card>
       </>
     );
   }
 
-  const pctPositive = s.current.total ? (s.current.positive / s.current.total) * 100 : null;
-  const prevPctPositive = s.previous.total ? (s.previous.positive / s.previous.total) * 100 : null;
-  const problems = s.categories
-    .filter((c) => c.problemMentions > 0)
-    .sort((a, c) => c.problemMentions - a.problemMentions)
-    .slice(0, 5);
+  const highlights = s.insights.insights.filter((i) => i.kind !== "info").slice(0, 3);
 
   return (
     <>
       <PageHeader
-        title="Resumen"
+        title="Tu progreso"
         description={`${period.label} · comparado con los ${period.days} días anteriores`}
         actions={<PeriodTabs basePath={base} current={period.value} />}
       />
 
-      <p className="mb-5 flex items-start gap-2 rounded-lg border border-line bg-white px-4 py-2.5 text-xs text-slate-600">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
-        Estos datos son opiniones privadas recogidas con el QR de {config.productName}. No son tu calificación pública de Google.
-      </p>
-
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          label="Opiniones totales"
-          value={formatNumber(s.totalAllTime)}
-          sub={
-            s.unreviewed > 0 ? (
-              <Link href={`${base}/opiniones?estado=nuevas`} className="font-medium text-brand-700 hover:underline">
-                {plural(s.unreviewed, "sin revisar", "sin revisar")}
-              </Link>
-            ) : (
-              "Todas revisadas"
-            )
-          }
+          label="Opiniones recibidas"
+          value={formatNumber(s.current.total)}
+          delta={<Delta current={s.current.total} previous={s.previous.total} />}
         />
         <StatCard
-          label="Promedio interno"
+          label="Calificación promedio"
           value={
             s.current.average === null ? (
               "—"
@@ -98,34 +81,26 @@ export default async function SummaryPage({ params, searchParams }: Props) {
           }
           delta={<Delta current={s.current.average} previous={s.previous.average} digits={1} />}
         />
-        <StatCard label="Últimos 7 días" value={formatNumber(s.last7)} sub="opiniones recibidas" />
-        <StatCard label="Últimos 30 días" value={formatNumber(s.last30)} sub="opiniones recibidas" />
+        <StatCard
+          label="Clientes enviados a Google"
+          value={formatNumber(s.googleClicks.current)}
+          delta={<Delta current={s.googleClicks.current} previous={s.googleClicks.previous} />}
+          sub={b.googleReviewUrl ? undefined : <Link href={`${base}/configuracion`} className="font-medium text-brand-700 hover:underline">Cargá tu enlace de Google</Link>}
+        />
+        <StatCard
+          label="Para revisar"
+          value={formatNumber(s.pendingToImprove)}
+          sub={
+            <Link href={`${base}/mejorar`} className="inline-flex items-center gap-0.5 font-medium text-brand-700 hover:underline">
+              Ver opiniones <ArrowRight className="size-3" aria-hidden />
+            </Link>
+          }
+        />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Distribución de puntuaciones" description={`${plural(s.current.total, "opinión", "opiniones")} en el período`} />
-          <CardBody>
-            {s.current.total ? <DistributionBars distribution={s.current.distribution} /> : <p className="py-6 text-center text-sm text-muted">Sin opiniones en este período.</p>}
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader
-            title="Positivas, neutrales y negativas"
-            description={<Delta current={pctPositive} previous={prevPctPositive} suffix=" pts. de positivas" />}
-            action={
-              access.canManage ? (
-                <Link href={`${base}/configuracion#criterios`} className="text-xs font-medium text-brand-700 hover:underline">
-                  Cambiar criterios
-                </Link>
-              ) : undefined
-            }
-          />
-          <CardBody>
-            <SentimentBar positive={s.current.positive} neutral={s.current.neutral} negative={s.current.negative} thresholds={s.thresholds} />
-          </CardBody>
-        </Card>
-      </div>
+      <p className="mt-3 text-xs text-muted">
+        Opiniones privadas recogidas con el QR de {config.productName}. “Clientes enviados a Google” cuenta cuántas personas tocaron “Dejar reseña en Google”; la calificación pública de Google puede ser distinta.
+      </p>
 
       <div className="mt-4">
         <TrendSection series={s.series} unit={s.unit} total={s.current.total} />
@@ -133,55 +108,35 @@ export default async function SummaryPage({ params, searchParams }: Props) {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader
-            title="Categorías con más problemas"
-            description="Menciones en opiniones neutrales o negativas"
-            action={<Link href={`${base}/analisis?periodo=${period.value}`} className="text-xs font-medium text-brand-700 hover:underline">Ver análisis</Link>}
-          />
-          <CardBody>
-            {problems.length ? (
-              <CategoryBars rows={problems.map((c) => ({ name: c.name, value: c.problemMentions }))} valueLabel="menciones en opiniones neutrales o negativas" />
+          <CardHeader title="Lo que más se repite" description="Motivos elegidos en opiniones de 1 a 4 estrellas" />
+          <CardBody className="space-y-6">
+            {reasons.length ? (
+              <CategoryBars rows={reasons.map((r) => ({ name: r.name, value: r.count }))} valueLabel="menciones en opiniones de 1 a 4 estrellas" />
             ) : (
-              <p className="py-6 text-center text-sm text-muted">No hay categorías señaladas en opiniones neutrales o negativas en este período.</p>
+              <p className="py-4 text-center text-sm text-muted">Ningún motivo se repite en este período. ¡Bien!</p>
+            )}
+            {highlights.length > 0 && (
+              <div className="border-t border-line pt-4">
+                <InsightList insights={highlights} />
+              </div>
             )}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Comparación con el período anterior" />
-          <CardBody className="overflow-x-auto">
-            <table className="w-full text-sm tabular-nums">
-              <thead className="text-xs text-muted">
-                <tr>
-                  <th className="pb-2 text-left font-medium">Indicador</th>
-                  <th className="pb-2 text-right font-medium">Actual</th>
-                  <th className="pb-2 text-right font-medium">Anterior</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                <tr>
-                  <td className="py-2">Opiniones</td>
-                  <td className="py-2 text-right">{formatNumber(s.current.total)}</td>
-                  <td className="py-2 text-right">{formatNumber(s.previous.total)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2">Promedio interno</td>
-                  <td className="py-2 text-right">{s.current.average === null ? "—" : formatNumber(s.current.average, 1)}</td>
-                  <td className="py-2 text-right">{s.previous.average === null ? "—" : formatNumber(s.previous.average, 1)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2">% positivas</td>
-                  <td className="py-2 text-right">{pctPositive === null ? "—" : `${formatNumber(pctPositive)}%`}</td>
-                  <td className="py-2 text-right">{prevPctPositive === null ? "—" : `${formatNumber(prevPctPositive)}%`}</td>
-                </tr>
-                <tr>
-                  <td className="py-2">Negativas</td>
-                  <td className="py-2 text-right">{formatNumber(s.current.negative)}</td>
-                  <td className="py-2 text-right">{formatNumber(s.previous.negative)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <CardHeader title="Satisfacción" description="Cómo se reparten las opiniones del período" />
+          <CardBody>
+            <SentimentBar positive={s.current.positive} neutral={s.current.neutral} negative={s.current.negative} thresholds={s.thresholds} />
           </CardBody>
         </Card>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-4 text-sm no-print">
+        <Link href={`${base}/reportes?periodo=${period.value}`} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
+          <FileText className="size-4" aria-hidden /> Descargar reporte del período
+        </Link>
+        <Link href={`${base}/opiniones`} className="inline-flex items-center gap-1 font-medium text-slate-600 hover:underline">
+          <MessageSquareText className="size-4" aria-hidden /> Ver todas las opiniones
+        </Link>
       </div>
     </>
   );

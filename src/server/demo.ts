@@ -172,6 +172,10 @@ export async function seedDemo(opts: { password: string; days?: number; now?: Da
         if (chosen.length) {
           await tx.feedbackCategorySelection.createMany({ data: chosen.map((categoryId) => ({ feedbackId: fb.id, categoryId, businessId: business.id })) });
         }
+        // Parte de quienes opinan también toca "Dejar reseña en Google" (más probable si quedaron contentos).
+        if (rand() < (rating >= 4 ? 0.45 : 0.12)) {
+          await tx.googleClick.create({ data: { businessId: business.id, createdAt } });
+        }
         if (rating <= 2 && rand() < 0.4) {
           await tx.feedbackNote.create({
             data: { feedbackId: fb.id, businessId: business.id, authorId: user.id, body: "Lo hablamos en la reunión de equipo del lunes." },

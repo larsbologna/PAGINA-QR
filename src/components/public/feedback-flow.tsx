@@ -68,6 +68,19 @@ export function FeedbackFlow({
     if (first) setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
   }
 
+  /** Avisa al servidor (sin bloquear la navegación) que se abrió Google. */
+  function trackGoogleClick() {
+    if (preview) return;
+    try {
+      const body = new Blob([JSON.stringify({ slug: business.slug })], { type: "application/json" });
+      if (!navigator.sendBeacon?.("/api/public/google-click", body)) {
+        void fetch("/api/public/google-click", { method: "POST", body, keepalive: true });
+      }
+    } catch {
+      /* la métrica nunca debe impedir ir a Google */
+    }
+  }
+
   function toggleCategory(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }
@@ -242,7 +255,7 @@ export function FeedbackFlow({
             {business.googleReviewUrl && (
               <p className="mt-8 text-center text-sm text-muted">
                 ¿Preferís dejar una reseña pública?{" "}
-                <a href={business.googleReviewUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: brandOnWhite }}>
+                <a href={business.googleReviewUrl} target="_blank" rel="noopener noreferrer" onClick={trackGoogleClick} className="font-medium underline" style={{ color: brandOnWhite }}>
                   Ir a Google
                 </a>
               </p>
@@ -262,15 +275,17 @@ export function FeedbackFlow({
 
             {business.googleReviewUrl && (
               <div className="mt-8 rounded-2xl border border-line bg-white p-5 text-left">
-                <p className="font-semibold text-ink">¿Querés compartir tu experiencia en Google?</p>
+                <p className="text-lg font-semibold text-ink">¿Nos ayudás con una reseña en Google?</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Es opcional. Tu opinión anterior es privada para {business.name}; si querés dejar una reseña pública, la escribís vos en Google.
+                  Te lleva 30 segundos y ayuda a que más personas conozcan {business.name}. Tu opinión de recién es privada; la reseña en Google la escribís vos.
                 </p>
                 <a
                   href={business.googleReviewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white text-base font-semibold text-ink shadow-sm hover:bg-slate-50"
+                  onClick={trackGoogleClick}
+                  className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold shadow-sm transition-opacity hover:opacity-90"
+                  style={{ background: brand, color: brandText }}
                 >
                   Dejar reseña en Google
                   <ExternalLink className="size-4" aria-hidden />

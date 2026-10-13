@@ -1,6 +1,6 @@
 import { getBusinessAccess } from "@/server/auth/current";
 import { listUserBusinesses } from "@/server/auth/access";
-import { countUnreviewed } from "@/server/services/feedback";
+import { countPendingToImprove } from "@/server/services/feedback";
 import { logoUrl } from "@/server/services/businesses";
 import { config } from "@/server/config";
 import { AppShell, type NavItem } from "@/components/shell/app-shell";
@@ -12,21 +12,15 @@ export default async function BusinessPanelLayout({ children, params }: { childr
   const { slug } = await params;
   const { user, access } = await getBusinessAccess(slug);
   const b = access.business;
-  const [unreviewed, businesses] = await Promise.all([countUnreviewed(b.id), listUserBusinesses(user)]);
+  const [pending, businesses] = await Promise.all([countPendingToImprove(b.id), listUserBusinesses(user)]);
   const base = `/panel/${b.slug}`;
 
+  // Menú corto a propósito: lo que el dueño usa todos los días.
   const nav: NavItem[] = [
-    { href: base, label: "Resumen", icon: "dashboard", exact: true },
-    { href: `${base}/opiniones`, label: "Opiniones", icon: "inbox", badge: unreviewed },
-    { href: `${base}/analisis`, label: "Análisis", icon: "analysis" },
-    { href: `${base}/reportes`, label: "Reportes", icon: "reports" },
+    { href: base, label: "Progreso", icon: "chart", exact: true },
+    { href: `${base}/mejorar`, label: "Para mejorar", icon: "inbox", badge: pending },
     { href: `${base}/qr`, label: "Código QR", icon: "qr" },
-    ...(access.canManage
-      ? ([
-          { href: `${base}/configuracion`, label: "Configuración", icon: "settings" },
-          { href: `${base}/equipo`, label: "Equipo", icon: "team" },
-        ] as NavItem[])
-      : []),
+    ...(access.canManage ? ([{ href: `${base}/configuracion`, label: "Configuración", icon: "settings" }] as NavItem[]) : []),
   ];
   const secondaryNav: NavItem[] = user.role === "SUPERADMIN" ? [{ href: "/admin", label: "Panel maestro", icon: "admin", exact: true }] : [];
 

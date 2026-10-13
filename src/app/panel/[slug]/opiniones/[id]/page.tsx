@@ -23,8 +23,8 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href={`/panel/${b.slug}/opiniones`} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="size-4" aria-hidden /> Volver a opiniones
+      <Link href={`/panel/${b.slug}/mejorar`} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+        <ArrowLeft className="size-4" aria-hidden /> Volver a “Para mejorar”
       </Link>
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">

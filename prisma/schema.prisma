@@ -148,6 +148,7 @@ model Business {
   selections  FeedbackCategorySelection[]
   slugHistory BusinessSlugHistory[]
   auditLogs   AuditLog[]
+  googleClicks GoogleClick[]
 
   @@index([status])
   @@index([plan])
@@ -285,6 +286,18 @@ model FeedbackNote {
   @@index([feedbackId])
   @@index([businessId])
   @@map("feedback_notes")
+}
+
+/// Un clic en "Dejar reseña en Google" desde la página pública (métrica de progreso).
+/// No guarda datos de la persona: solo el negocio y la fecha.
+model GoogleClick {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("google_clicks")
 }
 
 model AuditLog {

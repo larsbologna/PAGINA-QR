@@ -35,8 +35,8 @@ export default async function InboxPage({ params, searchParams }: Props) {
   return (
     <>
       <PageHeader
-        title="Opiniones"
-        description="Opiniones privadas recibidas con el QR. La puntuación y el comentario del cliente no se pueden editar."
+        title="Todas las opiniones"
+        description="Historial completo, incluidas las de 5 estrellas. La puntuación y el comentario del cliente no se pueden editar."
         actions={
           <>
             <form action={markAllReviewedAction.bind(null, b.slug)}>
