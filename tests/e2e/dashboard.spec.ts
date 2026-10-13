@@ -10,8 +10,6 @@ test("panel: estados vacíos, filtros, búsqueda, configuración y panel maestro
   // Estado vacío del resumen y del análisis.
   await page.goto(base);
   await expect(page.getByText("Todavía no recibiste opiniones")).toBeVisible();
-  await page.goto(`${base}/analisis`);
-  await expect(page.getByRole("heading", { name: "Todavía no hay información suficiente" })).toBeVisible();
 
   // Opiniones variadas desde la página pública.
   const client = await browser.newContext();
@@ -30,15 +28,20 @@ test("panel: estados vacíos, filtros, búsqueda, configuración y panel maestro
   }
   await client.close();
 
-  // Indicadores = datos guardados.
+  // Progreso = datos guardados.
   await page.goto(base);
-  await expect(page.getByText("Opiniones totales").locator("..")).toContainText("6");
-  await expect(page.getByText("Promedio interno", { exact: true }).first().locator("..")).toContainText("2,7"); // 16/6
-  await expect(page.getByRole("list", { name: "Distribución de puntuaciones" })).toContainText("2 (33%)");
-
-  // Análisis con datos reales.
-  await page.goto(`${base}/analisis`);
+  await expect(page.getByRole("heading", { name: "Tu progreso" })).toBeVisible();
+  await expect(page.getByText("Opiniones recibidas", { exact: true }).locator("..")).toContainText("6");
+  await expect(page.getByText("Calificación promedio", { exact: true }).locator("..")).toContainText("2,7"); // 16/6
+  await expect(page.getByText("Para revisar", { exact: true }).locator("..")).toContainText("5"); // todas menos la de 5 ★
   await expect(page.getByText("«Tiempo de espera» aparece en 3 opiniones neutrales o negativas en los últimos 30 días")).toBeVisible();
+
+  // "Para mejorar": solo 1 a 4 estrellas, con sus motivos.
+  await page.goto(`${base}/mejorar`);
+  await expect(page.getByText("Motivos más frecuentes · últimos 30 días")).toBeVisible();
+  await expect(page.getByText("Demora terrible")).toBeVisible();
+  await expect(page.getByText("Excelente café")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Estado de seguimiento" })).toHaveCount(5);
 
   // Filtros de la bandeja.
   await page.goto(`${base}/opiniones`);

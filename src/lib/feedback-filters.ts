@@ -3,7 +3,7 @@ export type FeedbackSort = "recientes" | "antiguas" | "mayor" | "menor";
 
 export interface FeedbackFilters {
   ratings: number[];
-  status: "NEW" | "REVIEWED" | null;
+  status: "NEW" | "IN_PROGRESS" | "REVIEWED" | null;
   categoryId: string | null;
   days: number | null;
   q: string;
@@ -28,7 +28,7 @@ export function parseFeedbackFilters(params: Params): FeedbackFilters {
   const ratingsRaw = one(params.puntuacion) ?? "";
   const ratings = [...new Set(ratingsRaw.split(",").map((x) => Number.parseInt(x, 10)).filter((n) => n >= 1 && n <= 5))].sort();
   const estado = one(params.estado);
-  const status = estado === "nuevas" ? "NEW" : estado === "revisadas" ? "REVIEWED" : null;
+  const status = estado === "nuevas" ? "NEW" : estado === "seguimiento" ? "IN_PROGRESS" : estado === "revisadas" ? "REVIEWED" : null;
   const categoryId = (one(params.categoria) ?? "").slice(0, 40) || null;
   const daysN = Number.parseInt(one(params.dias) ?? "", 10);
   const days = DAYS_OPTIONS.includes(daysN) ? daysN : null;
@@ -43,7 +43,7 @@ export function parseFeedbackFilters(params: Params): FeedbackFilters {
 export function filtersToSearchParams(f: Partial<FeedbackFilters>): URLSearchParams {
   const p = new URLSearchParams();
   if (f.ratings?.length) p.set("puntuacion", f.ratings.join(","));
-  if (f.status) p.set("estado", f.status === "NEW" ? "nuevas" : "revisadas");
+  if (f.status) p.set("estado", f.status === "NEW" ? "nuevas" : f.status === "IN_PROGRESS" ? "seguimiento" : "revisadas");
   if (f.categoryId) p.set("categoria", f.categoryId);
   if (f.days) p.set("dias", String(f.days));
   if (f.q) p.set("q", f.q);

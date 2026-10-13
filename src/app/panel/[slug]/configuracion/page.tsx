@@ -62,6 +62,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
           </CardBody>
         </Card>
         <Card>
+          <CardHeader title="Equipo" description="Personas que pueden entrar a este panel." />
+          <CardBody className="text-sm">
+            <Link href={`/panel/${b.slug}/equipo`} className="font-medium text-brand-700 hover:underline">Gestionar equipo e invitaciones →</Link>
+          </CardBody>
+        </Card>
+        <Card>
           <CardHeader title="Página pública" />
           <CardBody className="space-y-2 text-sm">
             <p className="break-all">

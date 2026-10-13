@@ -148,3 +148,32 @@ describe("Estadísticas, bandeja y exportación", () => {
     expect(audit).toBe(2);
   });
 });
+
+describe("Progreso: clics a Google y opiniones para mejorar", () => {
+  beforeEach(resetDb);
+
+  it("cuenta los clics a Google con límite por conexión y solo si hay enlace configurado", async () => {
+    const { recordGoogleClick, topReasons } = await import("@/server/services/feedback");
+    const b = await makeBusiness("Resto Google");
+    expect(await recordGoogleClick(b.slug, "ip-1")).toBe(false); // sin enlace de Google
+    await withSystem((tx) => tx.business.update({ where: { id: b.id }, data: { googleReviewUrl: "https://g.page/r/x/review" } }));
+    for (let i = 0; i < 7; i++) await recordGoogleClick(b.slug, "ip-1");
+    await recordGoogleClick(b.slug, "ip-2");
+    // "Ahora" un segundo después: el período actual excluye el instante exacto del cálculo,
+    // y en máquinas rápidas el último clic puede caer en ese mismo milisegundo.
+    const s = await getDashboardStats({ ...b }, 30, new Date(Date.now() + 1000));
+    expect(s.googleClicks).toEqual({ current: 6, previous: 0 }); // 5 de ip-1 (límite) + 1 de ip-2
+    expect(await recordGoogleClick("no-existe", "ip-3")).toBe(false);
+
+    const cats = await categoriesOf(b.id);
+    const espera = cats.find((c) => c.name === "Tiempo de espera")!;
+    await insertFeedback(b.id, [
+      { rating: 4, daysAgo: 1, categoryIds: [espera.id] },
+      { rating: 2, daysAgo: 2, categoryIds: [espera.id] },
+      { rating: 5, daysAgo: 3, categoryIds: [espera.id] },
+      { rating: 3, daysAgo: 4, status: "REVIEWED" },
+    ]);
+    expect(await topReasons(b.id, 30)).toEqual([{ id: espera.id, name: "Tiempo de espera", count: 2 }]); // la de 5 ★ no cuenta
+    expect((await getDashboardStats(b, 30, new Date(Date.now() + 1000))).pendingToImprove).toBe(2);
+  });
+});

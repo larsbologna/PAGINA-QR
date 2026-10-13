@@ -49,8 +49,10 @@ enum CategoryStatus {
   ARCHIVED
 }
 
+/// Estado de seguimiento de una opinión: nueva → en seguimiento → resuelta.
 enum FeedbackStatus {
   NEW
+  IN_PROGRESS
   REVIEWED
 }
 
@@ -148,6 +150,7 @@ model Business {
   selections  FeedbackCategorySelection[]
   slugHistory BusinessSlugHistory[]
   auditLogs   AuditLog[]
+  googleClicks GoogleClick[]
 
   @@index([status])
   @@index([plan])
@@ -245,6 +248,11 @@ model Feedback {
   reviewedBy    User?          @relation("FeedbackReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   /// Clave generada por el navegador para evitar duplicados por doble envío.
   submissionKey String
+  /// Datos de contacto OPCIONALES. Solo se guardan si la persona aceptó ser contactada.
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  contactConsentAt DateTime?
   createdAt     DateTime       @default(now())
 
   selections FeedbackCategorySelection[]
@@ -285,6 +293,18 @@ model FeedbackNote {
   @@index([feedbackId])
   @@index([businessId])
   @@map("feedback_notes")
+}
+
+/// Un clic en "Dejar reseña en Google" desde la página pública (métrica de progreso).
+/// No guarda datos de la persona: solo el negocio y la fecha.
+model GoogleClick {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("google_clicks")
 }
 
 model AuditLog {

@@ -7,7 +7,7 @@ export async function resetDb() {
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE
     "feedback_category_selections", "feedback_notes", "feedback", "feedback_categories",
     "business_slug_history", "business_members", "invitations", "business_plans",
-    "audit_logs", "rate_limit_buckets", "sessions", "businesses", "users" CASCADE`);
+    "audit_logs", "rate_limit_buckets", "google_clicks", "sessions", "businesses", "users" CASCADE`);
 }
 
 export { prisma };

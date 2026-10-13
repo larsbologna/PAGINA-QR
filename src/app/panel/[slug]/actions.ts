@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getBusinessAccess, requireManageAccess } from "@/server/auth/current";
-import { addFeedbackNote, markAllReviewed, setFeedbackReviewed } from "@/server/services/feedback";
+import { addFeedbackNote, markAllReviewed, setFeedbackReviewed, setFeedbackStatus, type FollowUpStatus } from "@/server/services/feedback";
 import { removeBusinessLogo, setBusinessLogo, updateBranding, updateThresholds } from "@/server/services/businesses";
 import { createCategory, moveCategory, renameCategory, setCategoryStatus } from "@/server/services/categories";
 import { createInvitation, removeMember, revokeInvitation } from "@/server/services/members";
@@ -28,6 +28,13 @@ async function run(fn: () => Promise<ActionState | void>): Promise<ActionState> 
 export async function setReviewedAction(slug: string, feedbackId: string, reviewed: boolean) {
   const { user, access } = await getBusinessAccess(slug);
   await setFeedbackReviewed(access.business.id, feedbackId, reviewed, user.id);
+  refresh(slug);
+}
+
+export async function setStatusAction(slug: string, feedbackId: string, status: FollowUpStatus) {
+  if (!["NEW", "IN_PROGRESS", "REVIEWED"].includes(status)) return;
+  const { user, access } = await getBusinessAccess(slug);
+  await setFeedbackStatus(access.business.id, feedbackId, status, user.id);
   refresh(slug);
 }
 

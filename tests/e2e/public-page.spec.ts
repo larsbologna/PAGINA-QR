@@ -14,20 +14,60 @@ test.beforeAll(async ({ browser }) => {
 
 test.use({ ...devices["Pixel 7"] });
 
-for (const rating of [1, 2, 3, 4, 5]) {
-  test(`con ${rating} estrella(s) se guarda y se ofrece la reseña en Google`, async ({ page }) => {
+for (const rating of [1, 2, 3, 4]) {
+  test(`con ${rating} estrella(s) abre el formulario privado, guarda y ofrece Google`, async ({ page }) => {
     const errors = trackConsole(page);
     await page.goto(publicUrl);
-    await submitPublicFeedback(page, { rating, comment: `Prueba ${rating}` });
+    await page.getByRole("radio", { name: new RegExp(`^${rating} estrellas?:`) }).check({ force: true });
+    await expect(page.getByRole("heading", { name: "Contanos qué podemos mejorar" })).toBeVisible();
+    // El acceso a Google sigue disponible también para 1 a 4 estrellas.
+    await expect(page.getByRole("link", { name: "Ir a Google Maps" })).toHaveAttribute("href", GOOGLE);
+    await page.getByLabel("¿Qué te pareció tu experiencia?").fill(`Prueba ${rating}`);
+    const saved = page.waitForResponse((r) => r.url().endsWith("/api/public/feedback") && r.request().method() === "POST");
+    await page.getByRole("button", { name: "Enviar opinión" }).click();
+    expect((await saved).status()).toBe(201);
+    await expect(page.getByRole("heading", { name: "¡Recibimos tu opinión!" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Dejar reseña en Google" })).toHaveAttribute("href", GOOGLE);
-    await expect(page.getByText("Ya podés cerrar esta página cuando quieras.")).toBeVisible();
     expect(errors).toEqual([]);
   });
 }
 
-test("el acceso a Google se ofrece también antes de puntuar", async ({ page }) => {
+test("con 5 estrellas muestra el botón para continuar a Google Maps y registra la puntuación", async ({ page }) => {
+  const errors = trackConsole(page);
+  await page.route("https://maps.app.goo.gl/**", (r) => r.fulfill({ body: "Google Maps (simulado)" }));
   await page.goto(publicUrl);
-  await expect(page.getByRole("link", { name: "Ir a Google" })).toHaveAttribute("href", GOOGLE);
+  await page.getByRole("radio", { name: /^5 estrellas:/ }).check({ force: true });
+  await expect(page.getByRole("heading", { name: "¡Gracias por las 5 estrellas!" })).toBeVisible();
+  const cta = page.getByRole("link", { name: "Continuar a Google Maps" });
+  await expect(cta).toHaveAttribute("href", GOOGLE);
+  await expect(cta).not.toHaveAttribute("target", "_blank"); // continúa en la misma pestaña
+  const saved = page.waitForRequest((r) => r.url().endsWith("/api/public/feedback") && JSON.parse(r.postData() ?? "{}").rating === 5);
+  const click = page.waitForRequest("**/api/public/google-click");
+  await cta.click();
+  await Promise.all([saved, click]);
+  await expect(page).toHaveURL(GOOGLE);
+  expect(errors).toEqual([]);
+});
+
+test("con 5 estrellas también se puede dejar un comentario privado", async ({ page }) => {
+  await page.goto(publicUrl);
+  await page.getByRole("radio", { name: /^5 estrellas:/ }).check({ force: true });
+  await page.getByRole("button", { name: "Prefiero dejar un comentario privado" }).click();
+  await expect(page.getByRole("heading", { name: "Contanos qué te gustó" })).toBeVisible();
+  await page.getByRole("button", { name: "Enviar opinión" }).click();
+  await expect(page.getByRole("heading", { name: "¡Recibimos tu opinión!" })).toBeVisible();
+});
+
+test("el formulario privado acepta datos de contacto opcionales y los valida", async ({ page }) => {
+  await page.goto(publicUrl);
+  await page.getByRole("radio", { name: /^2 estrellas:/ }).check({ force: true });
+  await page.getByText("Quiero que me contacten").click();
+  await page.getByRole("button", { name: "Enviar opinión" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "teléfono o un email" })).toBeVisible();
+  await page.getByLabel("Nombre").fill("Cliente E2E");
+  await page.getByLabel("Teléfono o WhatsApp").fill("11 5555-0123");
+  await page.getByRole("button", { name: "Enviar opinión" }).click();
+  await expect(page.getByText("te va a contactar con los datos que dejaste")).toBeVisible();
 });
 
 test("se usa cómodamente en un celular: estrellas grandes y sin desplazamiento horizontal", async ({ page }) => {
@@ -36,9 +76,10 @@ test("se usa cómodamente en un celular: estrellas grandes y sin desplazamiento 
   const box = (await star.boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(44);
   expect(box.height).toBeGreaterThanOrEqual(44);
-  await page.getByRole("radio", { name: /^4 estrellas/ }).focus();
-  await page.keyboard.press("ArrowRight"); // navegación con teclado
-  await expect(page.getByRole("radio", { name: /^5 estrellas/ })).toBeChecked();
+  await page.getByRole("radio", { name: /^2 estrellas/ }).focus();
+  await page.keyboard.press("ArrowRight"); // navegación con teclado: elige 3 estrellas
+  await expect(page.getByRole("heading", { name: "Contanos qué podemos mejorar" })).toBeVisible();
+  await page.getByText("Quiero que me contacten").click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

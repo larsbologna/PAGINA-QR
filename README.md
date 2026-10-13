@@ -10,6 +10,80 @@ El nombre "Reputación OS" se cambia con la variable `PRODUCT_NAME`.
 
 ---
 
+## Versión web sin servidor (GitHub Pages + Firebase gratis)
+
+Una sola página (`index.html`) publicada gratis en GitHub Pages. Se abre desde cualquier celular o computadora con un link: no hace falta CMD ni dejar una PC prendida. Los datos se guardan en Firebase (plan gratuito Spark).
+
+Código en `web/`. Reglas de seguridad en `firestore.rules`.
+
+Mientras `web/firebase-config.js` esté vacío, la página funciona en **modo demo**: los datos quedan guardados solo en ese navegador.
+
+### 1. Publicar en GitHub Pages
+
+1. Uní (merge) el pull request a la rama `main`.
+2. En GitHub, andá a **Settings → Pages → Build and deployment → Source** y elegí **GitHub Actions**.
+3. Cada cambio en `main` publica la página sola (workflow `.github/workflows/pages.yml`). El link queda así:
+   `https://<tu-usuario>.github.io/<nombre-del-repo>/`
+   - Página de un comercio: `…/?c=<slug>`. Es la dirección que va en el QR.
+   - Panel: `…/#/login`.
+
+### 2. Crear la base de datos en Firebase (gratis)
+
+1. Entrá a <https://console.firebase.google.com> → **Agregar proyecto**. Google Analytics no hace falta.
+2. **Compilación → Authentication → Comenzar → Correo electrónico/contraseña → Habilitar**.
+3. **Compilación → Firestore Database → Crear base de datos**. Elegí la ubicación `southamerica-east1` y el **modo de producción**.
+4. En Firestore, pestaña **Reglas**: borrá todo, pegá el contenido de `firestore.rules` y tocá **Publicar**.
+5. En **Authentication → Users → Agregar usuario**, creá tu usuario de administrador. Después copiá su **UID**.
+6. En **Firestore → Datos → Iniciar colección**:
+   - ID de la colección: `admins`
+   - ID del documento: el UID que copiaste
+   - Un campo cualquiera, por ejemplo `nombre` = `admin`
+7. En **Authentication → Configuración → Dominios autorizados**, agregá `<tu-usuario>.github.io`.
+8. En **Configuración del proyecto (⚙) → General → Tus apps**, agregá una app **Web (</>)**. Copiá los valores `apiKey`, `authDomain`, `projectId` y `appId`.
+9. En GitHub, editá `web/firebase-config.js` y pegá esos valores. Al guardar (commit en `main`), la página se vuelve a publicar sola.
+
+Estos valores no son secretos: lo que protege los datos son las reglas de `firestore.rules`.
+
+### 3. Usarla
+
+- Entrá a `…/#/login` con tu usuario de administrador.
+- Desde **Administración**, creá cada comercio y la cuenta de su dueño.
+- Cada dueño entra con su email y solo ve su propio comercio.
+- El QR se descarga desde el panel, en la pestaña **QR**.
+
+### Límites del plan gratuito
+
+- Firestore: 50.000 lecturas y 20.000 escrituras por día.
+- Alcanza de sobra para varios comercios chicos.
+- No hay limitación de frecuencia de envíos: el plan Spark no incluye Cloud Functions. Si en algún momento llega spam, se puede activar **App Check** en Firebase.
+
+### Pruebas de la versión web
+
+```bash
+npm run test:web   # reglas de Firestore + recorridos en navegador (requiere Java 21)
+```
+
+---
+
+## Inicio rápido en Windows (sin instalar nada más)
+
+Solo necesitás **Node.js** (versión LTS, de <https://nodejs.org>).
+
+1. Descargá el proyecto (botón verde **Code → Download ZIP** en GitHub) y descomprimilo.
+2. Abrí la carpeta, escribí `cmd` en la barra de direcciones y apretá Enter. En esa ventana ejecutá:
+   ```
+   npm install
+   ```
+3. Hacé doble clic en **`iniciar.bat`**.
+
+La primera vez tarda unos minutos: crea una base de datos local en la carpeta `.datos`, el usuario superadministrador y el negocio DEMO, y compila la web. Al terminar se abre el navegador. **Los usuarios y contraseñas quedan en `CREDENCIALES.txt`.**
+
+- **Desde el celular:** la ventana muestra la dirección de tu computadora en la red (por ejemplo `http://192.168.0.15:3000`) y un QR para escanear. El celular tiene que estar en la **misma WiFi**. Si no abre, permití "Node.js" en redes privadas cuando Windows lo pregunte (Firewall). Los QR que descargues del panel también apuntan a esa dirección, así que sirven para probar en el local con celulares en la misma red. Para clientes reales, publicá la web con un dominio (ver Producción). Con `LOCAL_ONLY=1` se desactiva el acceso desde la red.
+- Para cerrar: cerrá la ventana negra (o Ctrl+C). Para apagar también la base de datos: `detener.bat`.
+- Las próximas veces, doble clic en `iniciar.bat` y listo (arranca en segundos).
+- No hace falta Docker ni instalar PostgreSQL: viene incluido como paquete de npm (`embedded-postgres`). Funciona también en macOS y Linux con `node scripts/iniciar.mjs`.
+- Esto es para usar o mostrar el sistema en tu computadora. Para que los clientes escaneen el QR desde su celular, hay que publicarlo en internet (ver [Producción y despliegue](#producción-y-despliegue)).
+
 ## Índice
 
 1. [Funcionalidades](#funcionalidades)
@@ -31,17 +105,16 @@ El nombre "Reputación OS" se cambia con la variable `PRODUCT_NAME`.
 
 ## Funcionalidades
 
-**Página pública** (`/r/{slug}`), pensada primero para celulares
-- Logo, nombre, mensaje de bienvenida y color de marca del negocio.
-- Cinco estrellas grandes, accesibles con teclado y lector de pantalla, con animación sutil.
-- Comentario opcional (hasta 1000 caracteres) y categorías opcionales configurables.
-- No pide nombre, teléfono, email ni cuenta.
-- Confirmación clara y botón **"Dejar reseña en Google"** para todas las puntuaciones. El acceso a Google también está visible antes de puntuar.
-- Protección contra doble envío (clave de envío única), campo trampa contra bots y límite de envíos por conexión.
+**Página pública** (`/r/{slug}`, un QR propio por comercio), pensada primero para celulares
+- Logo, nombre, mensaje de bienvenida y color de marca del negocio, con 5 estrellas grandes y accesibles.
+- **5 estrellas:** botón "Continuar a Google Maps" con el enlace configurado por comercio. Se registran la puntuación y el clic. También permite "Prefiero dejar un comentario privado".
+- **1 a 4 estrellas:** formulario privado con comentario, motivos (categorías) y **datos de contacto opcionales** (nombre, teléfono/WhatsApp, email). Los datos de contacto se guardan solo si la persona marca "Quiero que me contacten". El formulario muestra igualmente un enlace a Google Maps, y la pantalla final un botón para dejar reseña en Google.
+- Protección contra doble envío, campo trampa contra bots y límite de envíos por conexión.
 
 **Panel del negocio** (`/panel/{slug}`)
 - **Resumen:** total de opiniones, promedio interno, últimos 7 y 30 días, distribución 1–5, positivas/neutrales/negativas (criterios configurables), categorías con más problemas, evolución en el tiempo y comparación con el período anterior. Todo se calcula con datos reales y se aclara que no es la calificación de Google.
-- **Opiniones:** bandeja con filtros (puntuación, período, categoría, estado), búsqueda de texto, orden, paginación, estado de revisión y notas internas. La puntuación y el comentario del cliente no se pueden editar.
+- **Para mejorar:** opiniones de 1 a 4 estrellas con motivo, comentario, fecha, puntuación, contacto (con enlaces para llamar, WhatsApp o email) y **estado de seguimiento**: Nueva → En seguimiento → Resuelta.
+- **Opiniones:** historial completo con filtros (puntuación, período, categoría, estado), búsqueda de texto, orden, paginación y notas internas. La puntuación y el comentario del cliente no se pueden editar.
 - **Análisis:** conclusiones deterministas ("«Tiempo de espera» aparece en 12 opiniones…") que solo se muestran si hay datos suficientes.
 - **Reportes:** reporte imprimible / PDF por período y exportación CSV (compatible con Excel en español).
 - **Código QR:** vista previa, PNG en 4 tamaños, SVG vectorial, copia del enlace y plantilla de impresión A6.

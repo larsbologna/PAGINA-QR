@@ -12,3 +12,11 @@ next-env.d.ts
 .env.e2e.local
 .DS_Store
 npm-debug.log*
+
+# Datos locales del iniciador (base de datos y claves)
+.datos/
+CREDENCIALES.txt
+web/dist/
+web/dist-emu/
+firestore-debug.log
+firebase-debug.log

@@ -13,7 +13,7 @@ export default async function globalSetup() {
     const [{ db }] = await prisma.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
     if (!db.endsWith("_e2e")) throw new Error(`Se esperaba una base *_e2e y se obtuvo "${db}". No se vacía.`);
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE feedback_category_selections, feedback_notes, feedback, feedback_categories,
-      business_slug_history, business_members, invitations, business_plans, audit_logs, rate_limit_buckets, sessions, businesses, users CASCADE`);
+      business_slug_history, business_members, invitations, business_plans, audit_logs, rate_limit_buckets, google_clicks, sessions, businesses, users CASCADE`);
   } finally {
     await prisma.$disconnect();
   }

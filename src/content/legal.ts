@@ -6,7 +6,7 @@
 export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   {
     title: "Qué datos recogemos de quienes dejan una opinión",
-    body: "Solo la puntuación (1 a 5), el comentario que decidas escribir y las categorías que selecciones. No pedimos nombre, teléfono ni email, y no necesitás crear una cuenta. Te pedimos que no incluyas datos personales en el comentario.",
+    body: "La puntuación (1 a 5), el comentario que decidas escribir y las categorías que selecciones. No necesitás crear una cuenta. Solo si marcás \"Quiero que me contacten\", guardamos el nombre, teléfono y/o email que ingreses, para que el negocio pueda responderte; sin esa marca no se guarda ningún dato de contacto. Te pedimos que no incluyas datos personales en el comentario.",
   },
   {
     title: "Datos técnicos",
@@ -14,7 +14,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "Para qué se usan",
-    body: "Las opiniones son privadas: solo las ve el negocio que las recibió y {proveedor}, que presta el servicio. Se usan para mejorar la atención. Nunca se publican automáticamente en Google ni en otro sitio.",
+    body: "Las opiniones y los datos de contacto opcionales son privados: solo los ve el negocio que los recibió y {proveedor}, que presta el servicio. Se usan para mejorar la atención y, si lo pediste, para contactarte. Nunca se publican automáticamente en Google ni en otro sitio.",
   },
   {
     title: "Reseñas en Google",

@@ -35,8 +35,8 @@ export default async function InboxPage({ params, searchParams }: Props) {
   return (
     <>
       <PageHeader
-        title="Opiniones"
-        description="Opiniones privadas recibidas con el QR. La puntuación y el comentario del cliente no se pueden editar."
+        title="Todas las opiniones"
+        description="Historial completo, incluidas las de 5 estrellas. La puntuación y el comentario del cliente no se pueden editar."
         actions={
           <>
             <form action={markAllReviewedAction.bind(null, b.slug)}>
@@ -78,7 +78,7 @@ export default async function InboxPage({ params, searchParams }: Props) {
                       <time className="text-xs text-muted" dateTime={f.createdAt.toISOString()}>
                         {formatDateTime(f.createdAt, b.timezone)}
                       </time>
-                      {f.status === "NEW" ? <Badge tone="brand">Sin revisar</Badge> : <Badge>Revisada</Badge>}
+                      {f.status === "NEW" ? <Badge tone="brand">Nueva</Badge> : f.status === "IN_PROGRESS" ? <Badge tone="amber">En seguimiento</Badge> : <Badge>Resuelta</Badge>}
                     </div>
                     <ReviewToggle slug={b.slug} feedbackId={f.id} reviewed={f.status === "REVIEWED"} />
                   </div>

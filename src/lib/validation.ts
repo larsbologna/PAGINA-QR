@@ -19,6 +19,27 @@ export const feedbackSubmissionSchema = z.object({
   submissionKey: z.string().regex(/^[A-Za-z0-9-]{8,64}$/, "Clave de envío inválida."),
   /** Campo trampa: los humanos no lo ven; si llega completo, es un bot. */
   website: z.string().max(200).optional().default(""),
+  /** Datos de contacto opcionales; solo válidos con consentimiento explícito. */
+  contact: z
+    .object({
+      consent: z.boolean().default(false),
+      name: trimmed(80).optional().default(""),
+      phone: z
+        .string()
+        .trim()
+        .max(30)
+        .refine((v) => v === "" || /^[+()\d\s-]{6,30}$/.test(v), "Teléfono inválido.")
+        .optional()
+        .default(""),
+      email: z.union([z.literal(""), z.string().trim().toLowerCase().email("Email inválido.").max(160)]).optional().default(""),
+    })
+    .optional()
+    .refine((c) => !c || c.consent || (!c.name && !c.phone && !c.email), {
+      message: "Para dejar tus datos tenés que aceptar que el negocio te contacte.",
+    })
+    .refine((c) => !c || !c.consent || !!(c.phone || c.email), {
+      message: "Dejá un teléfono o un email para que puedan contactarte.",
+    }),
 });
 export type FeedbackSubmissionInput = z.input<typeof feedbackSubmissionSchema>;
 
