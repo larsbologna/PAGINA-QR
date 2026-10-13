@@ -135,3 +135,68 @@ describe("Envío de opiniones públicas", () => {
     });
   });
 });
+
+describe("Contacto opcional y seguimiento", () => {
+  beforeEach(resetDb);
+  const key = () => randomUUID();
+
+  it("guarda el contacto solo con consentimiento y al menos teléfono o email", async () => {
+    const b = await makeBusiness("Resto Contacto");
+    await submitFeedback(
+      { slug: b.slug, rating: 2, comment: "Demora", submissionKey: key(), contact: { consent: true, name: "Ana", phone: "+54 11 5555-0101", email: "" } },
+      "ip",
+    );
+    const fb = await withSystem((tx) => tx.feedback.findFirstOrThrow({ where: { businessId: b.id } }));
+    expect(fb).toMatchObject({ contactName: "Ana", contactPhone: "+54 11 5555-0101", contactEmail: null });
+    expect(fb.contactConsentAt).not.toBeNull();
+
+    // Sin contacto: ningún dato personal.
+    await submitFeedback({ slug: b.slug, rating: 3, submissionKey: key() }, "ip");
+    const sinContacto = await withSystem((tx) => tx.feedback.findFirstOrThrow({ where: { businessId: b.id, rating: 3 } }));
+    expect([sinContacto.contactName, sinContacto.contactPhone, sinContacto.contactEmail, sinContacto.contactConsentAt]).toEqual([null, null, null, null]);
+  });
+
+  it.each([
+    [{ consent: false, name: "", phone: "1155550101", email: "" }, /aceptar/],
+    [{ consent: true, name: "Ana", phone: "", email: "" }, /teléfono o un email/],
+    [{ consent: true, name: "", phone: "", email: "no-es-email" }, /Email inválido/],
+    [{ consent: true, name: "", phone: "abc", email: "" }, /Teléfono inválido/],
+  ])("rechaza contacto inválido %j", async (contact, error) => {
+    const b = await makeBusiness("Resto Inválido");
+    await expect(submitFeedback({ slug: b.slug, rating: 2, submissionKey: key(), contact }, "ip")).rejects.toThrow(error);
+    expect(await countFeedback(b.id)).toBe(0);
+  });
+
+  it("la base rechaza datos de contacto sin consentimiento (CHECK)", async () => {
+    const b = await makeBusiness("Resto Check Contacto");
+    await expect(
+      withSystem((tx) => tx.feedback.create({ data: { businessId: b.id, rating: 2, submissionKey: key(), contactPhone: "1155550101" } })),
+    ).rejects.toThrow();
+  });
+
+  it("cambia el estado de seguimiento: nueva → en seguimiento → resuelta, con auditoría y aislamiento", async () => {
+    const { setFeedbackStatus, listFeedback, countPendingToImprove } = await import("@/server/services/feedback");
+    const { parseFeedbackFilters } = await import("@/lib/feedback-filters");
+    const a = await makeBusiness("Resto Seguimiento A");
+    const otro = await makeBusiness("Resto Seguimiento B");
+    const user = await prisma.user.create({ data: { email: "dueno@seg.com", passwordHash: "x" } });
+    await submitFeedback({ slug: a.slug, rating: 1, submissionKey: key() }, "ip");
+    const { items } = await listFeedback(a.id, parseFeedbackFilters({}));
+    const id = items[0]!.id;
+    expect(await countPendingToImprove(a.id)).toBe(1);
+
+    await setFeedbackStatus(a.id, id, "IN_PROGRESS", user.id);
+    expect((await listFeedback(a.id, parseFeedbackFilters({ estado: "seguimiento" }))).total).toBe(1);
+    expect(await countPendingToImprove(a.id)).toBe(1); // en seguimiento sigue pendiente
+
+    await setFeedbackStatus(a.id, id, "REVIEWED", user.id);
+    const resuelta = await withSystem((tx) => tx.feedback.findUniqueOrThrow({ where: { id } }));
+    expect(resuelta.status).toBe("REVIEWED");
+    expect(resuelta.reviewedAt).not.toBeNull();
+    expect(resuelta.rating).toBe(1); // la puntuación no cambia
+    expect(await countPendingToImprove(a.id)).toBe(0);
+    expect(await prisma.auditLog.count({ where: { action: "feedback.status_changed" } })).toBe(2);
+
+    await expect(setFeedbackStatus(otro.id, id, "NEW", user.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});

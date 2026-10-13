@@ -82,7 +82,7 @@ export async function getDashboardStats(b: BusinessRef, days: number, now = new 
       tx.feedback.count({ where: { businessId: b.id, status: "NEW" } }),
       tx.googleClick.count({ where: { businessId: b.id, createdAt: { gte: current.from, lt: current.to } } }),
       tx.googleClick.count({ where: { businessId: b.id, createdAt: { gte: previous.from, lt: previous.to } } }),
-      tx.feedback.count({ where: { businessId: b.id, status: "NEW", rating: { lte: 4 } } }),
+      tx.feedback.count({ where: { businessId: b.id, status: { not: "REVIEWED" }, rating: { lte: 4 } } }),
     ]);
 
     // Serie temporal agrupada en la zona horaria del negocio.

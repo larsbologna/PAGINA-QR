@@ -22,6 +22,7 @@ export type AuditAction =
   | "category.updated"
   | "feedback.reviewed"
   | "feedback.unreviewed"
+  | "feedback.status_changed"
   | "feedback.note_added"
   | "feedback.exported"
   | "member.invited"

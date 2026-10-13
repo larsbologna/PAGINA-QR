@@ -61,12 +61,17 @@ export async function submitFeedback(raw: FeedbackSubmissionInput, ipIdentifier:
         if (valid !== categoryIds.length) throw new AppError("VALIDATION", "Alguna de las categorías seleccionadas no es válida.");
       }
 
+      const c = input.contact;
+      const withContact = !!c?.consent && !!(c.phone || c.email);
       const fb = await tx.feedback.create({
         data: {
           businessId: business.id,
           rating: input.rating,
           comment: input.comment ? input.comment : null,
           submissionKey: input.submissionKey,
+          ...(withContact
+            ? { contactName: c!.name || null, contactPhone: c!.phone || null, contactEmail: c!.email || null, contactConsentAt: new Date() }
+            : {}),
         },
         select: { id: true },
       });
@@ -75,7 +80,7 @@ export async function submitFeedback(raw: FeedbackSubmissionInput, ipIdentifier:
           data: categoryIds.map((categoryId) => ({ feedbackId: fb.id, categoryId, businessId: business.id })),
         });
       }
-      log("info", "feedback.created", { businessId: business.id, rating: input.rating, categories: categoryIds.length });
+      log("info", "feedback.created", { businessId: business.id, rating: input.rating, categories: categoryIds.length, contact: withContact });
       return { ok: true as const, duplicate: false };
     });
   } catch (e) {
@@ -123,6 +128,7 @@ export async function listFeedback(businessId: string, f: FeedbackFilters, pageS
       take: pageSize,
       select: {
         id: true, rating: true, comment: true, status: true, createdAt: true,
+        contactName: true, contactPhone: true, contactEmail: true,
         selections: { select: { category: { select: { id: true, name: true } } } },
         _count: { select: { notes: true } },
       },
@@ -137,6 +143,7 @@ export async function listFeedback(businessId: string, f: FeedbackFilters, pageS
         comment: i.comment,
         status: i.status,
         createdAt: i.createdAt,
+        contact: i.contactPhone || i.contactEmail ? { name: i.contactName, phone: i.contactPhone, email: i.contactEmail } : null,
         categories: i.selections.map((s) => s.category),
         notesCount: i._count.notes,
       })),
@@ -150,6 +157,7 @@ export async function getFeedbackDetail(businessId: string, feedbackId: string) 
       where: { id: feedbackId, businessId },
       select: {
         id: true, rating: true, comment: true, status: true, createdAt: true, reviewedAt: true,
+        contactName: true, contactPhone: true, contactEmail: true, contactConsentAt: true,
         reviewedBy: { select: { name: true, email: true } },
         selections: { select: { category: { select: { id: true, name: true } } } },
         notes: {
@@ -161,24 +169,32 @@ export async function getFeedbackDetail(businessId: string, feedbackId: string) 
   );
 }
 
-export async function setFeedbackReviewed(businessId: string, feedbackId: string, reviewed: boolean, userId: string) {
+export type FollowUpStatus = "NEW" | "IN_PROGRESS" | "REVIEWED";
+
+/** Cambia el estado de seguimiento. La puntuación y el comentario del cliente nunca se modifican. */
+export async function setFeedbackStatus(businessId: string, feedbackId: string, status: FollowUpStatus, userId: string) {
   await withTenant(businessId, async (tx) => {
-    // Solo cambia el estado: la puntuación y el comentario del cliente nunca se modifican.
     const { count } = await tx.feedback.updateMany({
       where: { id: feedbackId, businessId },
-      data: reviewed
-        ? { status: "REVIEWED", reviewedAt: new Date(), reviewedById: userId }
-        : { status: "NEW", reviewedAt: null, reviewedById: null },
+      data:
+        status === "REVIEWED"
+          ? { status, reviewedAt: new Date(), reviewedById: userId }
+          : { status, reviewedAt: null, reviewedById: null },
     });
     if (count === 0) throw new AppError("NOT_FOUND", "Opinión no encontrada.");
-    await audit({ userId, businessId, action: reviewed ? "feedback.reviewed" : "feedback.unreviewed", metadata: { feedbackId } }, tx);
+    await audit({ userId, businessId, action: "feedback.status_changed", metadata: { feedbackId, status } }, tx);
   });
+}
+
+/** Compatibilidad: marcar o desmarcar como resuelta. */
+export function setFeedbackReviewed(businessId: string, feedbackId: string, reviewed: boolean, userId: string) {
+  return setFeedbackStatus(businessId, feedbackId, reviewed ? "REVIEWED" : "NEW", userId);
 }
 
 export async function markAllReviewed(businessId: string, userId: string) {
   return withTenant(businessId, async (tx) => {
     const { count } = await tx.feedback.updateMany({
-      where: { businessId, status: "NEW" },
+      where: { businessId, status: { in: ["NEW", "IN_PROGRESS"] } },
       data: { status: "REVIEWED", reviewedAt: new Date(), reviewedById: userId },
     });
     await audit({ userId, businessId, action: "feedback.reviewed", metadata: { bulk: count } }, tx);
@@ -240,5 +256,5 @@ export async function topReasons(businessId: string, days: number, maxRating = 4
 
 /** Opiniones de 1 a 4 estrellas todavía sin resolver (insignia del menú "Para mejorar"). */
 export async function countPendingToImprove(businessId: string) {
-  return withTenant(businessId, (tx) => tx.feedback.count({ where: { businessId, status: "NEW", rating: { lte: 4 } } }));
+  return withTenant(businessId, (tx) => tx.feedback.count({ where: { businessId, status: { not: "REVIEWED" }, rating: { lte: 4 } } }));
 }

@@ -41,7 +41,7 @@ test("panel: estados vacíos, filtros, búsqueda, configuración y panel maestro
   await expect(page.getByText("Motivos más frecuentes · últimos 30 días")).toBeVisible();
   await expect(page.getByText("Demora terrible")).toBeVisible();
   await expect(page.getByText("Excelente café")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Marcar como resuelta" })).toHaveCount(5);
+  await expect(page.getByRole("group", { name: "Estado de seguimiento" })).toHaveCount(5);
 
   // Filtros de la bandeja.
   await page.goto(`${base}/opiniones`);

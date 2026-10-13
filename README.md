@@ -49,17 +49,16 @@ La primera vez tarda unos minutos: crea una base de datos local en la carpeta `.
 
 ## Funcionalidades
 
-**Página pública** (`/r/{slug}`), pensada primero para celulares
-- Logo, nombre, mensaje de bienvenida y color de marca del negocio.
-- Cinco estrellas grandes, accesibles con teclado y lector de pantalla, con animación sutil.
-- Comentario opcional (hasta 1000 caracteres) y categorías opcionales configurables.
-- No pide nombre, teléfono, email ni cuenta.
-- Confirmación clara y botón **"Dejar reseña en Google"** para todas las puntuaciones. El acceso a Google también está visible antes de puntuar.
-- Protección contra doble envío (clave de envío única), campo trampa contra bots y límite de envíos por conexión.
+**Página pública** (`/r/{slug}`, un QR propio por comercio), pensada primero para celulares
+- Logo, nombre, mensaje de bienvenida y color de marca del negocio, con 5 estrellas grandes y accesibles.
+- **5 estrellas:** botón "Continuar a Google Maps" con el enlace configurado por comercio. Se registran la puntuación y el clic. También permite "Prefiero dejar un comentario privado".
+- **1 a 4 estrellas:** formulario privado con comentario, motivos (categorías) y **datos de contacto opcionales** (nombre, teléfono/WhatsApp, email). Los datos de contacto se guardan solo si la persona marca "Quiero que me contacten". El formulario muestra igualmente un enlace a Google Maps, y la pantalla final un botón para dejar reseña en Google.
+- Protección contra doble envío, campo trampa contra bots y límite de envíos por conexión.
 
 **Panel del negocio** (`/panel/{slug}`)
 - **Resumen:** total de opiniones, promedio interno, últimos 7 y 30 días, distribución 1–5, positivas/neutrales/negativas (criterios configurables), categorías con más problemas, evolución en el tiempo y comparación con el período anterior. Todo se calcula con datos reales y se aclara que no es la calificación de Google.
-- **Opiniones:** bandeja con filtros (puntuación, período, categoría, estado), búsqueda de texto, orden, paginación, estado de revisión y notas internas. La puntuación y el comentario del cliente no se pueden editar.
+- **Para mejorar:** opiniones de 1 a 4 estrellas con motivo, comentario, fecha, puntuación, contacto (con enlaces para llamar, WhatsApp o email) y **estado de seguimiento**: Nueva → En seguimiento → Resuelta.
+- **Opiniones:** historial completo con filtros (puntuación, período, categoría, estado), búsqueda de texto, orden, paginación y notas internas. La puntuación y el comentario del cliente no se pueden editar.
 - **Análisis:** conclusiones deterministas ("«Tiempo de espera» aparece en 12 opiniones…") que solo se muestran si hay datos suficientes.
 - **Reportes:** reporte imprimible / PDF por período y exportación CSV (compatible con Excel en español).
 - **Código QR:** vista previa, PNG en 4 tamaños, SVG vectorial, copia del enlace y plantilla de impresión A6.

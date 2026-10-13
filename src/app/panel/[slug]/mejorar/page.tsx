@@ -13,14 +13,17 @@ import { Badge } from "@/components/ui/badge";
 import { Stars } from "@/components/ui/stars";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
-import { ReviewToggle } from "@/components/inbox/review-toggle";
+import { StatusControl } from "@/components/inbox/status-control";
+import { ContactInfo } from "@/components/inbox/contact-info";
+import { STATUS_LABELS } from "@/lib/status";
 
 export const metadata: Metadata = { title: "Para mejorar" };
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 const TABS = [
-  { value: "pendientes", label: "Pendientes" },
+  { value: "pendientes", label: "Nuevas" },
+  { value: "seguimiento", label: "En seguimiento" },
   { value: "resueltas", label: "Resueltas" },
   { value: "todas", label: "Todas" },
 ] as const;
@@ -37,7 +40,8 @@ export default async function ImprovePage({ params, searchParams }: Props) {
   const filters = {
     ...parseFeedbackFilters({}),
     ratings: [1, 2, 3, 4],
-    status: tab === "pendientes" ? ("NEW" as const) : tab === "resueltas" ? ("REVIEWED" as const) : null,
+    status:
+      tab === "pendientes" ? ("NEW" as const) : tab === "seguimiento" ? ("IN_PROGRESS" as const) : tab === "resueltas" ? ("REVIEWED" as const) : null,
     page: Number.isFinite(pageN) && pageN > 0 ? pageN : 1,
   };
   const [result, reasons] = await Promise.all([listFeedback(b.id, filters), topReasons(b.id, 30)]);
@@ -51,7 +55,7 @@ export default async function ImprovePage({ params, searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title="Para mejorar" description="Opiniones de 1 a 4 estrellas: qué le pasó al cliente y por qué. Marcalas como resueltas a medida que las atiendas." />
+      <PageHeader title="Para mejorar" description="Opiniones privadas de 1 a 4 estrellas: qué le pasó al cliente y por qué. Seguí cada caso: Nueva → En seguimiento → Resuelta." />
 
       {reasons.length > 0 && (
         <div className="mb-5 rounded-xl border border-line bg-white px-5 py-4">
@@ -81,8 +85,8 @@ export default async function ImprovePage({ params, searchParams }: Props) {
 
       {result.items.length === 0 ? (
         <Card>
-          <EmptyState icon={CheckCircle2} title={tab === "pendientes" ? "No hay opiniones pendientes" : "No hay opiniones para mostrar"}>
-            {tab === "pendientes" ? "Todo al día: no quedan opiniones de 1 a 4 estrellas sin atender." : "Cuando lleguen opiniones de 1 a 4 estrellas, aparecen acá."}
+          <EmptyState icon={CheckCircle2} title={tab === "pendientes" ? "No hay opiniones nuevas" : "No hay opiniones para mostrar"}>
+            {tab === "pendientes" ? "Todo al día: no quedan opiniones de 1 a 4 estrellas sin atender." : "Cuando haya opiniones en este estado, aparecen acá."}
           </EmptyState>
         </Card>
       ) : (
@@ -98,9 +102,9 @@ export default async function ImprovePage({ params, searchParams }: Props) {
                       <time className="text-xs text-muted" dateTime={f.createdAt.toISOString()}>
                         {formatDateTime(f.createdAt, b.timezone)}
                       </time>
-                      {f.status === "REVIEWED" && <Badge tone="green">Resuelta</Badge>}
+                      <span className="sr-only">Estado: {STATUS_LABELS[f.status]}</span>
                     </div>
-                    <ReviewToggle slug={b.slug} feedbackId={f.id} reviewed={f.status === "REVIEWED"} labels={{ mark: "Marcar como resuelta", unmark: "Reabrir" }} />
+                    <StatusControl slug={b.slug} feedbackId={f.id} status={f.status} />
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -119,6 +123,8 @@ export default async function ImprovePage({ params, searchParams }: Props) {
                   ) : (
                     <p className="mt-2 text-sm text-muted italic">Sin comentario</p>
                   )}
+
+                  {f.contact && <ContactInfo contact={f.contact} />}
 
                   <div className="mt-3 text-right">
                     <Link href={`/panel/${b.slug}/opiniones/${f.id}`} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">

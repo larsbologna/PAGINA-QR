@@ -24,7 +24,7 @@ export async function exportFeedbackCsv(
     RATING_LABELS[r.rating],
     r.comment ?? "",
     r.selections.map((s) => s.category.name).join(", "),
-    r.status === "REVIEWED" ? "Revisada" : "Nueva",
+    r.status === "REVIEWED" ? "Resuelta" : r.status === "IN_PROGRESS" ? "En seguimiento" : "Nueva",
     r.id,
   ]);
   const headers = business.isDemo ? [...CSV_HEADERS, "DEMO"] : CSV_HEADERS;

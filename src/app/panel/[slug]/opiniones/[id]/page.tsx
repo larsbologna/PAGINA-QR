@@ -9,7 +9,8 @@ import { RATING_LABELS } from "@/lib/rating";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Stars } from "@/components/ui/stars";
-import { ReviewToggle } from "@/components/inbox/review-toggle";
+import { StatusControl } from "@/components/inbox/status-control";
+import { ContactInfo } from "@/components/inbox/contact-info";
 import { NoteForm } from "@/components/inbox/note-form";
 
 export const metadata: Metadata = { title: "Detalle de opinión" };
@@ -36,8 +37,7 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
             <p className="mt-1 text-xs text-muted">Recibida el {formatDateTime(f.createdAt, b.timezone)}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            {f.status === "NEW" ? <Badge tone="brand">Sin revisar</Badge> : <Badge>Revisada</Badge>}
-            <ReviewToggle slug={b.slug} feedbackId={f.id} reviewed={f.status === "REVIEWED"} />
+            <StatusControl slug={b.slug} feedbackId={f.id} status={f.status} />
           </div>
         </div>
         <CardBody className="space-y-4">
@@ -45,6 +45,9 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
             <h2 className="text-xs font-medium tracking-wide text-muted uppercase">Comentario del cliente</h2>
             {f.comment ? <p className="mt-1 whitespace-pre-line text-slate-800">{f.comment}</p> : <p className="mt-1 text-sm text-muted italic">Sin comentario</p>}
           </div>
+          {f.contactConsentAt && (f.contactPhone || f.contactEmail) && (
+            <ContactInfo contact={{ name: f.contactName, phone: f.contactPhone, email: f.contactEmail }} />
+          )}
           {f.selections.length > 0 && (
             <div>
               <h2 className="text-xs font-medium tracking-wide text-muted uppercase">Categorías</h2>
@@ -55,7 +58,7 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
           )}
           {f.reviewedAt && (
             <p className="text-xs text-muted">
-              Revisada el {formatDateTime(f.reviewedAt, b.timezone)}
+              Resuelta el {formatDateTime(f.reviewedAt, b.timezone)}
               {f.reviewedBy ? ` por ${f.reviewedBy.name ?? f.reviewedBy.email}` : ""}.
             </p>
           )}

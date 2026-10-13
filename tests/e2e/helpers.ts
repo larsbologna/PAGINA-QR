@@ -61,9 +61,18 @@ export function decodeQr(png: Buffer): string | null {
   return jsQR(new Uint8ClampedArray(img.data), img.width, img.height)?.data ?? null;
 }
 
-/** Completa el formulario público. */
+/**
+ * Completa el formulario público. Con 5 estrellas y enlace de Google, la página
+ * ofrece ir a Google; para comentar en privado se usa "Prefiero dejar un comentario privado".
+ */
 export async function submitPublicFeedback(page: Page, opts: { rating: number; comment?: string; categories?: string[] }) {
   await page.getByRole("radio", { name: new RegExp(`^${opts.rating} estrellas?:`) }).check({ force: true });
+  if (opts.rating === 5) {
+    const privateLink = page.getByRole("button", { name: "Prefiero dejar un comentario privado" });
+    const form = page.getByRole("heading", { name: /Contanos qué/ });
+    await expect(privateLink.or(form)).toBeVisible();
+    if (await privateLink.isVisible()) await privateLink.click();
+  }
   if (opts.comment) await page.getByLabel("¿Qué te pareció tu experiencia?").fill(opts.comment);
   for (const c of opts.categories ?? []) await page.getByText(c, { exact: true }).click();
   await page.getByRole("button", { name: "Enviar opinión" }).click();

@@ -49,8 +49,10 @@ enum CategoryStatus {
   ARCHIVED
 }
 
+/// Estado de seguimiento de una opinión: nueva → en seguimiento → resuelta.
 enum FeedbackStatus {
   NEW
+  IN_PROGRESS
   REVIEWED
 }
 
@@ -246,6 +248,11 @@ model Feedback {
   reviewedBy    User?          @relation("FeedbackReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   /// Clave generada por el navegador para evitar duplicados por doble envío.
   submissionKey String
+  /// Datos de contacto OPCIONALES. Solo se guardan si la persona aceptó ser contactada.
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  contactConsentAt DateTime?
   createdAt     DateTime       @default(now())
 
   selections FeedbackCategorySelection[]

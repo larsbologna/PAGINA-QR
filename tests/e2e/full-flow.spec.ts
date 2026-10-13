@@ -34,6 +34,8 @@ test("recorrido completo: crear negocio → QR → opinión → panel → estad�
   await phone.getByRole("radio", { name: /^1 estrella:/ }).check({ force: true });
   await phone.getByLabel("¿Qué te pareció tu experiencia?").fill("La pizza llegó fría y tardó 50 minutos");
   await phone.getByText("Tiempo de espera", { exact: true }).click();
+  await phone.getByText("Quiero que me contacten").click();
+  await phone.getByLabel("Teléfono o WhatsApp").fill("11 5555-0177");
   await phone.getByRole("button", { name: "Enviar opinión" }).dblclick();
   await expect(phone.getByRole("heading", { name: "¡Recibimos tu opinión!" })).toBeVisible();
   // Una puntuación baja también recibe el acceso a Google.
@@ -57,15 +59,20 @@ test("recorrido completo: crear negocio → QR → opinión → panel → estad�
   await owner.getByRole("link", { name: /Para mejorar/ }).first().click();
   await expect(owner.getByText("La pizza llegó fría y tardó 50 minutos")).toHaveCount(1); // sin duplicados por el doble clic
   await expect(owner.getByText("Tiempo de espera").first()).toBeVisible();
+  await expect(owner.getByText("Pidió que lo contacten:")).toBeVisible();
+  await expect(owner.getByRole("link", { name: "11 5555-0177" })).toHaveAttribute("href", "tel:1155550177");
+  await owner.getByRole("button", { name: "En seguimiento" }).click();
+  await expect(owner.getByText("No hay opiniones nuevas")).toBeVisible();
+  await owner.getByRole("link", { name: "En seguimiento" }).click();
   await owner.getByRole("link", { name: "Agregar nota" }).click();
   await owner.getByLabel("Agregar nota interna").fill("Llamamos al repartidor");
   await owner.getByRole("button", { name: "Guardar nota" }).click();
   await expect(owner.getByText("Nota agregada.")).toBeVisible();
   await expect(owner.locator("li").filter({ hasText: "Llamamos al repartidor" })).toBeVisible();
   await expect(owner.getByText(/La puntuación y el comentario originales no se pueden modificar/)).toBeVisible();
-  await owner.goto(`/panel/${biz.slug}/mejorar`);
-  await owner.getByRole("button", { name: "Marcar como resuelta" }).click();
-  await expect(owner.getByText("No hay opiniones pendientes")).toBeVisible();
+  await owner.goto(`/panel/${biz.slug}/mejorar?ver=seguimiento`);
+  await owner.getByRole("button", { name: "Resuelta" }).click();
+  await expect(owner.getByText("No hay opiniones para mostrar")).toBeVisible();
   await owner.getByRole("link", { name: "Resueltas" }).click();
   await expect(owner.getByText("La pizza llegó fría y tardó 50 minutos")).toBeVisible();
 

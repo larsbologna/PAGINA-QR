@@ -87,6 +87,14 @@ const COMMENTS: Record<number, string[]> = {
   ],
 };
 
+/** Contactos ficticios (números 555 y dominio .example, que no existen). */
+const DEMO_CONTACTS = [
+  { contactName: "Laura (DEMO)", contactPhone: "11 5555-0101", contactEmail: null },
+  { contactName: "Martín (DEMO)", contactPhone: null, contactEmail: "martin@correo.example" },
+  { contactName: null, contactPhone: "11 5555-0199", contactEmail: null },
+  { contactName: "Sofía (DEMO)", contactPhone: "11 5555-0142", contactEmail: "sofia@correo.example" },
+];
+
 const CATEGORY_HINTS: Record<number, string[]> = {
   5: ["Atención", "Calidad de la comida", "Ambiente"],
   4: ["Calidad de la comida", "Atención", "Precio", "Ambiente"],
@@ -158,6 +166,8 @@ export async function seedDemo(opts: { password: string; days?: number; now?: Da
           .map((n) => byName.get(n))
           .filter((x): x is string => !!x);
         const createdAt = new Date(now.getTime() - d * 86400000 - Math.floor(rand() * 10 * 3600000));
+        const contact = rating <= 4 && rand() < 0.3 ? DEMO_CONTACTS[Math.floor(rand() * DEMO_CONTACTS.length)]! : null;
+        const status = d > 14 && rand() < 0.85 ? "REVIEWED" : rating <= 3 && d >= 2 && rand() < 0.5 ? "IN_PROGRESS" : "NEW";
         const fb = await tx.feedback.create({
           data: {
             businessId: business.id,
@@ -165,8 +175,9 @@ export async function seedDemo(opts: { password: string; days?: number; now?: Da
             comment: comment || null,
             submissionKey: randomUUID(),
             createdAt,
-            status: d > 7 && rand() < 0.85 ? "REVIEWED" : "NEW",
-            reviewedAt: null,
+            status,
+            reviewedAt: status === "REVIEWED" ? createdAt : null,
+            ...(contact ? { ...contact, contactConsentAt: createdAt } : {}),
           },
         });
         if (chosen.length) {

@@ -53,10 +53,11 @@ export function FiltersForm({ action, filters, categories }: { action: string; f
       </div>
       <div>
         <label htmlFor="estado" className="sr-only">Estado</label>
-        <Select id="estado" name="estado" defaultValue={filters.status === "NEW" ? "nuevas" : filters.status === "REVIEWED" ? "revisadas" : ""}>
-          <option value="">Estado: todas</option>
-          <option value="nuevas">Sin revisar</option>
-          <option value="revisadas">Revisadas</option>
+        <Select id="estado" name="estado" defaultValue={filters.status === "NEW" ? "nuevas" : filters.status === "IN_PROGRESS" ? "seguimiento" : filters.status === "REVIEWED" ? "revisadas" : ""}>
+          <option value="">Estado: todos</option>
+          <option value="nuevas">Nuevas</option>
+          <option value="seguimiento">En seguimiento</option>
+          <option value="revisadas">Resueltas</option>
         </Select>
       </div>
       <div>
