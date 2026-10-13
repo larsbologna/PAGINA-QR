@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// Reputación OS — reglas de seguridad de Firestore.
+//
+// Modelo:
+//   admins/{uid}                         superadministradores (se crean a mano desde la consola)
+//   access/{slug}                        { ownerUids: [], ownerEmails: [] }  quién administra cada comercio
+//   businesses/{slug}                    perfil público del comercio (nombre, logo, colores, enlace de Google)
+//   businesses/{slug}/feedback/{id}      opiniones privadas (las crea el público; las lee solo el comercio)
+//   businesses/{slug}/clicks/{yyyy-mm-dd} contador de clics a "Google Maps"
+//
+// Cada comercio solo puede leer y modificar sus propios registros.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function accessDoc(slug) { return /databases/$(database)/documents/access/$(slug); }
+    function isOwner(slug) {
+      return signedIn() && exists(accessDoc(slug)) && request.auth.uid in get(accessDoc(slug)).data.ownerUids;
+    }
+    function canManage(slug) { return isAdmin() || isOwner(slug); }
+    function businessActive(slug) {
+      return exists(/databases/$(database)/documents/businesses/$(slug))
+        && get(/databases/$(database)/documents/businesses/$(slug)).data.active == true;
+    }
+    function str(v, max) { return v is string && v.size() <= max; }
+
+    // ── Superadministradores ───────────────────────────────────────────
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false; // solo desde la consola de Firebase
+    }
+
+    // ── Quién administra cada comercio ─────────────────────────────────
+    match /access/{slug} {
+      allow get: if canManage(slug);
+      // Para que un dueño encuentre "sus" comercios (consulta array-contains).
+      allow list: if isAdmin() || (signedIn() && request.auth.uid in resource.data.ownerUids);
+      allow write: if isAdmin();
+    }
+
+    // ── Perfil público del comercio ────────────────────────────────────
+    function validProfile(d) {
+      return d.keys().hasOnly(['name', 'brandColor', 'logo', 'welcomeMessage', 'thankYouMessage',
+                                'googleReviewUrl', 'categories', 'active', 'isDemo', 'createdAt', 'updatedAt'])
+        && str(d.name, 80) && d.name.size() >= 2
+        && d.brandColor is string && d.brandColor.matches('^#[0-9a-fA-F]{6}$')
+        && (d.logo == null || str(d.logo, 300000))
+        && str(d.welcomeMessage, 120) && str(d.thankYouMessage, 200)
+        && (d.googleReviewUrl == null || (str(d.googleReviewUrl, 500) && d.googleReviewUrl.matches('^https://.*')))
+        && d.categories is list && d.categories.size() <= 12
+        && d.active is bool;
+    }
+
+    match /businesses/{slug} {
+      // Público: la página del QR necesita leer nombre, logo, colores y enlace.
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if validProfile(request.resource.data) && (
+        isAdmin() ||
+        // El dueño edita su identidad, pero no puede activarse/suspenderse ni marcarse como demo.
+        (isOwner(slug)
+          && request.resource.data.active == resource.data.active
+          && request.resource.data.get('isDemo', false) == resource.data.get('isDemo', false))
+      );
+
+      // ── Opiniones privadas ─────────────────────────────────────────
+      match /feedback/{id} {
+        function validContact(c) {
+          return c.keys().hasOnly(['consent', 'name', 'phone', 'email'])
+            && c.consent == true
+            && str(c.name, 80) && str(c.phone, 30) && str(c.email, 160)
+            && (c.phone.size() > 0 || c.email.size() > 0);
+        }
+        function validNew(d) {
+          return d.keys().hasOnly(['rating', 'comment', 'categories', 'contact', 'status', 'createdAt'])
+            && d.rating is int && d.rating >= 1 && d.rating <= 5
+            && str(d.comment, 1000)
+            && d.categories is list && d.categories.size() <= 12
+            && d.status == 'NEW'
+            && d.createdAt == request.time
+            && (!('contact' in d) || validContact(d.contact));
+        }
+        // Cualquiera (sin cuenta) puede dejar una opinión en un comercio activo.
+        allow create: if businessActive(slug) && validNew(request.resource.data);
+        allow read: if canManage(slug);
+        // El comercio solo cambia el seguimiento y su nota interna; nunca la puntuación ni el comentario.
+        allow update: if canManage(slug)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusUpdatedAt', 'note'])
+          && request.resource.data.status in ['NEW', 'IN_PROGRESS', 'REVIEWED']
+          && (!('note' in request.resource.data) || str(request.resource.data.note, 2000));
+        allow delete: if isAdmin();
+      }
+
+      // ── Clics en "Google Maps" (de a uno) ──────────────────────────
+      match /clicks/{day} {
+        allow read: if canManage(slug);
+        allow create: if businessActive(slug) && day.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && request.resource.data.keys().hasOnly(['count']) && request.resource.data.count == 1;
+        allow update: if businessActive(slug)
+          && request.resource.data.keys().hasOnly(['count'])
+          && request.resource.data.count == resource.data.count + 1;
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}

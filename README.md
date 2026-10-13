@@ -10,6 +10,61 @@ El nombre "Reputación OS" se cambia con la variable `PRODUCT_NAME`.
 
 ---
 
+## Versión web sin servidor (GitHub Pages + Firebase gratis)
+
+Una sola página (`index.html`) publicada gratis en GitHub Pages. Se abre desde cualquier celular o computadora con un link: no hace falta CMD ni dejar una PC prendida. Los datos se guardan en Firebase (plan gratuito Spark).
+
+Código en `web/`. Reglas de seguridad en `firestore.rules`.
+
+Mientras `web/firebase-config.js` esté vacío, la página funciona en **modo demo**: los datos quedan guardados solo en ese navegador.
+
+### 1. Publicar en GitHub Pages
+
+1. Uní (merge) el pull request a la rama `main`.
+2. En GitHub, andá a **Settings → Pages → Build and deployment → Source** y elegí **GitHub Actions**.
+3. Cada cambio en `main` publica la página sola (workflow `.github/workflows/pages.yml`). El link queda así:
+   `https://<tu-usuario>.github.io/<nombre-del-repo>/`
+   - Página de un comercio: `…/?c=<slug>`. Es la dirección que va en el QR.
+   - Panel: `…/#/login`.
+
+### 2. Crear la base de datos en Firebase (gratis)
+
+1. Entrá a <https://console.firebase.google.com> → **Agregar proyecto**. Google Analytics no hace falta.
+2. **Compilación → Authentication → Comenzar → Correo electrónico/contraseña → Habilitar**.
+3. **Compilación → Firestore Database → Crear base de datos**. Elegí la ubicación `southamerica-east1` y el **modo de producción**.
+4. En Firestore, pestaña **Reglas**: borrá todo, pegá el contenido de `firestore.rules` y tocá **Publicar**.
+5. En **Authentication → Users → Agregar usuario**, creá tu usuario de administrador. Después copiá su **UID**.
+6. En **Firestore → Datos → Iniciar colección**:
+   - ID de la colección: `admins`
+   - ID del documento: el UID que copiaste
+   - Un campo cualquiera, por ejemplo `nombre` = `admin`
+7. En **Authentication → Configuración → Dominios autorizados**, agregá `<tu-usuario>.github.io`.
+8. En **Configuración del proyecto (⚙) → General → Tus apps**, agregá una app **Web (</>)**. Copiá los valores `apiKey`, `authDomain`, `projectId` y `appId`.
+9. En GitHub, editá `web/firebase-config.js` y pegá esos valores. Al guardar (commit en `main`), la página se vuelve a publicar sola.
+
+Estos valores no son secretos: lo que protege los datos son las reglas de `firestore.rules`.
+
+### 3. Usarla
+
+- Entrá a `…/#/login` con tu usuario de administrador.
+- Desde **Administración**, creá cada comercio y la cuenta de su dueño.
+- Cada dueño entra con su email y solo ve su propio comercio.
+- El QR se descarga desde el panel, en la pestaña **QR**.
+
+### Límites del plan gratuito
+
+- Firestore: 50.000 lecturas y 20.000 escrituras por día.
+- Alcanza de sobra para varios comercios chicos.
+- No hay limitación de frecuencia de envíos: el plan Spark no incluye Cloud Functions. Si en algún momento llega spam, se puede activar **App Check** en Firebase.
+
+### Pruebas de la versión web
+
+```bash
+npm run test:web   # reglas de Firestore + recorridos en navegador (requiere Java 21)
+```
+
+---
+
 ## Inicio rápido en Windows (sin instalar nada más)
 
 Solo necesitás **Node.js** (versión LTS, de <https://nodejs.org>).
