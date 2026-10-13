@@ -43,8 +43,21 @@ function fallar(mensaje, detalle) {
 }
 
 function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: "utf-8", shell: IS_WIN && !path.isAbsolute(cmd), ...opts });
+  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: "utf-8", windowsHide: true, ...opts });
   return { code: r.status ?? 1, out: `${r.stdout ?? ""}${r.stderr ?? ""}${r.error ? r.error.message : ""}` };
+}
+
+// Las herramientas se ejecutan directamente con Node (sin pasar por la consola de
+// Windows): más robusto y sin el aviso DEP0190.
+const BIN = {
+  next: path.join(ROOT, "node_modules", "next", "dist", "bin", "next"),
+  prisma: path.join(ROOT, "node_modules", "prisma", "build", "index.js"),
+  tsx: path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs"),
+};
+
+/** Ejecuta un script del proyecto (TypeScript) como lo hace "npm run". */
+function runScript(file, args, opts = {}) {
+  return run(process.execPath, [BIN.tsx, "--conditions=react-server", file, ...args], opts);
 }
 
 function secret(bytes = 18) {
@@ -219,7 +232,7 @@ async function main() {
   delete env.NODE_ENV; // next build/start lo definen solos
 
   paso(3, "Migraciones");
-  const mig = run("npx", ["prisma", "migrate", "deploy"], { env });
+  const mig = run(process.execPath, [BIN.prisma, "migrate", "deploy"], { env });
   if (mig.code !== 0) fallar("Fallaron las migraciones.", mig.out);
   ok("Esquema actualizado");
 
@@ -228,9 +241,9 @@ async function main() {
     const adminEmail = "admin@reputacion.local";
     const adminPassword = secret(9);
     const demoPassword = secret(9);
-    const a = run("npm", ["run", "superadmin:create", "--", "--email", adminEmail, "--password", adminPassword], { env });
+    const a = runScript("scripts/create-superadmin.ts", ["--email", adminEmail, "--password", adminPassword], { env });
     if (a.code !== 0) fallar("No se pudo crear el superadministrador.", a.out);
-    const d = run("npm", ["run", "demo:seed"], { env: { ...env, DEMO_PASSWORD: demoPassword } });
+    const d = runScript("scripts/seed-demo.ts", [], { env: { ...env, DEMO_PASSWORD: demoPassword } });
     if (d.code !== 0) fallar("No se pudo crear el negocio de demostración.", d.out);
     fs.writeFileSync(
       CREDENTIALS_FILE,
@@ -259,22 +272,30 @@ async function main() {
 
   paso(5, "Compilación");
   if (needsBuild()) {
-    console.log("      Compilando la web (la primera vez tarda 1 o 2 minutos)…");
-    const b = run("npx", ["next", "build"], { env: { ...env, NEXT_TELEMETRY_DISABLED: "1" } });
-    if (b.code !== 0) fallar("Falló la compilación.", b.out);
+    console.log("      Compilando la web. La primera vez puede tardar varios minutos (más si el antivirus revisa los archivos).");
+    console.log("      Vas a ver el avance acá abajo:\n");
+    // Salida visible en vivo: así se nota que avanza y, si falla, se ve el motivo.
+    const b = spawnSync(process.execPath, [BIN.next, "build"], {
+      cwd: ROOT,
+      env: { ...env, NEXT_TELEMETRY_DISABLED: "1" },
+      stdio: ["ignore", "inherit", "inherit"],
+      windowsHide: true,
+    });
+    if (b.status !== 0) fallar("Falló la compilación (ver el detalle arriba).");
     ok("Web compilada");
   } else {
     ok("Ya estaba compilada");
   }
 
   paso(6, "Iniciando");
-  const server = spawn("npx", ["next", "start", "-p", String(appPort)], {
+  const server = spawn(process.execPath, [BIN.next, "start", "-p", String(appPort)], {
     cwd: ROOT,
     env: { ...env, NEXT_TELEMETRY_DISABLED: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
-    shell: IS_WIN,
+    // La salida normal se descarta (si se capturara sin leerla, podría frenar el servidor);
+    // los errores se muestran en la ventana.
+    stdio: ["ignore", "ignore", "inherit"],
+    windowsHide: true,
   });
-  server.stderr.on("data", (c) => process.stderr.write(c));
   server.on("exit", (code) => {
     stopPostgres(bin);
     process.exit(code ?? 0);
