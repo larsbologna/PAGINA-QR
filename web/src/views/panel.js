@@ -4,7 +4,7 @@
 //   #/panel/<slug>/opiniones        Opiniones (?f=filtro) y /opiniones/<id> para el detalle
 //   #/panel/<slug>/configuracion    Configuración
 import { BRAND, brandLogo } from "../brand.js";
-import { mapArt } from "../map-art.js";
+import { reviewArt } from "../review-art.js";
 import { h, icon, logoEl, mount, spinner } from "../ui.js";
 import { renderHome } from "./panel-home.js";
 import { renderReviews } from "./panel-reviews.js";
@@ -65,7 +65,7 @@ export async function renderPanel(root, store, parts, params, go) {
     const b = ctx.business;
     place.replaceChildren(
       logoEl(b, 52, "place-logo"),
-      h("div", { class: "place-text" }, h("p", { class: "place-name" }, b.name), h("p", { class: "place-meta" }, icon("pin", 14), h("span", {}, [b.industry, b.address].filter(Boolean).join(" · ") || "Completá rubro y dirección en Configuración"))),
+      h("div", { class: "place-text" }, h("p", { class: "place-name" }, b.name), h("p", { class: "place-meta" }, icon("store", 14), h("span", {}, [b.industry, b.address].filter(Boolean).join(" · ") || "Completá rubro y dirección en Configuración"))),
     );
   }
   paintPlace();
@@ -92,12 +92,12 @@ export async function renderPanel(root, store, parts, params, go) {
       h(
         "header",
         { class: "panel-top" },
-        h("div", { class: "panel-map" }, mapArt(slug, { width: 1200, height: 260 })),
+        h("div", { class: "panel-art" }, reviewArt(slug, { width: 1200, height: 260 })),
         h(
           "div",
           { class: "panel-bar" },
           brandLogo({ size: 26, href: "#/panel" }),
-          h("button", { type: "button", class: "btn btn-ghost small on-map", onclick: () => logout(store, go) }, icon("logout", 16), h("span", {}, "Salir")),
+          h("button", { type: "button", class: "btn btn-ghost small on-art", onclick: () => logout(store, go) }, icon("logout", 16), h("span", {}, "Salir")),
         ),
         h("div", { class: "panel-place-wrap" }, place, nav("tabs")),
       ),
@@ -145,7 +145,7 @@ function panelMessage(store, go, title, text, action) {
   return h(
     "div",
     { class: "auth" },
-    h("div", { class: "auth-map" }, mapArt("panel", { width: 1200, height: 800 })),
+    h("div", { class: "auth-art" }, reviewArt("panel", { width: 1200, height: 800 })),
     h(
       "main",
       { class: "auth-card" },

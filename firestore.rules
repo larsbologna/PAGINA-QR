@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Pagina-QR — reglas de seguridad de Firestore.
+// ReseñaQR — reglas de seguridad de Firestore.
 //
 // Modelo:
 //   access/{slug}                     { ownerUids: [] }  quién administra cada negocio

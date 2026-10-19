@@ -26,6 +26,7 @@ export const isPending = (f) => needsFollowUp(f) && !isResolved(f);
 export const FILTERS = [
   { id: "todas", label: "Todas", test: () => true },
   { id: "positivas", label: "Positivas", test: (f) => sentimentOf(f.rating) === "positive" },
+  { id: "intermedias", label: "Intermedias", test: (f) => sentimentOf(f.rating) === "neutral" },
   { id: "negativas", label: "Negativas", test: (f) => sentimentOf(f.rating) === "negative" },
   { id: "pendientes", label: "Pendientes", test: isPending },
   { id: "resueltas", label: "Resueltas", test: (f) => needsFollowUp(f) && isResolved(f) },

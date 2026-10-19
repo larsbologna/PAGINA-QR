@@ -1,6 +1,6 @@
 // Ingreso al panel del negocio.
 import { BRAND, brandLogo } from "../brand.js";
-import { mapArt } from "../map-art.js";
+import { reviewArt } from "../review-art.js";
 import { h, icon, mount, spinner } from "../ui.js";
 
 export function renderLogin(root, store, go) {
@@ -16,7 +16,7 @@ export function renderLogin(root, store, go) {
     h(
       "div",
       { class: "auth" },
-      h("div", { class: "auth-map" }, mapArt("ingreso", { width: 1200, height: 800 })),
+      h("div", { class: "auth-art" }, reviewArt("ingreso", { width: 1200, height: 800 })),
       h(
         "main",
         { class: "auth-card" },

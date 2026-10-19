@@ -144,7 +144,12 @@ export function trendChart(series, unit) {
   });
 
   let raf = 0;
+  let lastWidth = 0;
   const ro = new ResizeObserver(() => {
+    // Solo se redibuja si cambió el ancho (evita ciclos de redibujo).
+    const w = Math.round(plot.clientWidth);
+    if (w === lastWidth) return;
+    lastWidth = w;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(() => {
       draw();

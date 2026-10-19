@@ -1,12 +1,10 @@
-// Marca centralizada de Pagina-QR. Para renombrar el producto o ajustar su
+// Marca centralizada de ReseñaQR. Para renombrar el producto o ajustar su
 // identidad, se cambia solo este archivo (y los colores en styles.css → :root).
 export const BRAND = {
-  name: "Pagina-QR",
-  tagline: "Opiniones de tus clientes, directo desde el QR.",
-  // Colores principales (se repiten como variables CSS en styles.css).
-  ink: "#0D1B2A",
-  primary: "#0F7B5F",
-  pin: "#F2542D",
+  name: "ReseñaQR",
+  // El logotipo se escribe en dos partes: la segunda va en el color de acento.
+  wordmark: ["Reseña", "QR"],
+  tagline: "Las opiniones de tus clientes, en un toque.",
 };
 
 const NS = "http://www.w3.org/2000/svg";
@@ -18,15 +16,15 @@ function svgEl(tag, attrs = {}) {
 }
 
 /**
- * Isotipo: un pin de mapa cuya cabeza es el "ojo" de un código QR
- * (cuadrado de esquinas redondeadas con un punto central).
+ * Isotipo: el "ojo" de un código QR (cuadrado redondeado con borde) con una
+ * estrella en el centro, sobre una burbuja de opinión.
  */
 export function brandMark(size = 28) {
   const svg = svgEl("svg", { viewBox: "0 0 32 32", width: size, height: size, "aria-hidden": "true", class: "brand-mark" });
   svg.append(
-    svgEl("path", { d: "M16 31c-.5 0-1-.2-1.3-.6L8.4 23H8a6 6 0 0 1-6-6V7a6 6 0 0 1 6-6h16a6 6 0 0 1 6 6v10a6 6 0 0 1-6 6h-.4l-6.3 7.4c-.3.4-.8.6-1.3.6z", fill: "var(--mark-body, #0D1B2A)" }),
-    svgEl("rect", { x: 8, y: 5, width: 16, height: 14, rx: 3.5, fill: "none", stroke: "var(--mark-ring, #fff)", "stroke-width": 2.6 }),
-    svgEl("rect", { x: 12.6, y: 9.1, width: 6.8, height: 5.8, rx: 1.4, fill: "var(--mark-dot, #F2542D)" }),
+    svgEl("path", { d: "M8 1h16a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7h-7.2l-5.6 3.6c-.8.5-1.9-.1-1.9-1.1V28H8a7 7 0 0 1-7-7V8a7 7 0 0 1 7-7z", fill: "var(--mark-body, #10203A)" }),
+    svgEl("rect", { x: 6.2, y: 5.6, width: 19.6, height: 17.4, rx: 4.6, fill: "none", stroke: "var(--mark-ring, #fff)", "stroke-width": 2.2 }),
+    svgEl("path", { d: "M16 8.6l1.85 3.75 4.15.6-3 2.92.7 4.12L16 18.05l-3.7 1.94.7-4.12-3-2.92 4.15-.6z", fill: "var(--mark-dot, #F5B000)" }),
   );
   return svg;
 }
@@ -41,8 +39,8 @@ export function brandLogo({ size = 26, href } = {}) {
   }
   const word = document.createElement("span");
   word.className = "brand-word";
-  const [a, b] = BRAND.name.split("-");
-  word.append(a ?? BRAND.name);
+  const [a, b] = BRAND.wordmark;
+  word.append(a);
   if (b) {
     const s = document.createElement("span");
     s.className = "brand-word-accent";

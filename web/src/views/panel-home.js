@@ -42,7 +42,7 @@ export function renderHome(root, ctx) {
       h(
         "div",
         { class: "section-head" },
-        h("div", {}, h("h1", { class: "section-title" }, "Resumen"), h("p", { class: "section-sub" }, icon("lock", 14), h("span", {}, "Opiniones recibidas por tu QR. No es tu calificación de Google."))),
+        h("div", {}, h("h1", { class: "section-title" }, "Resumen"), h("p", { class: "section-sub" }, icon("lock", 14), h("span", {}, "Opiniones privadas recibidas por tu QR. No son tus reseñas de Google."))),
         periodTabs,
       ),
       h(
@@ -82,6 +82,7 @@ export function renderHome(root, ctx) {
           distributionChart(s.distribution),
         ),
       ),
+      googleNote(ctx.business),
       h(
         "section",
         { class: "card" },
@@ -113,6 +114,22 @@ export function renderHome(root, ctx) {
   return { update };
 }
 
+/** Aclara la diferencia entre lo que recibe ReseñaQR y las reseñas públicas de Google. */
+function googleNote(b) {
+  return h(
+    "aside",
+    { class: "google-note" },
+    h("span", { class: "google-note-icon", "aria-hidden": "true" }, icon("starline", 20)),
+    h(
+      "div",
+      { class: "google-note-text" },
+      h("strong", {}, "Tus reseñas públicas están en Google"),
+      h("span", {}, "Acá ves solo lo que te contaron por el QR. Las reseñas que tus clientes publican en Google no se importan: se responden desde tu Perfil de Empresa."),
+    ),
+    b.googleReviewUrl ? h("a", { class: "btn btn-ghost small", href: b.googleReviewUrl, target: "_blank", rel: "noopener noreferrer" }, icon("external", 16), h("span", {}, "Mi enlace de Google")) : null,
+  );
+}
+
 function kpi(label, value, foot, tone) {
   return h("article", { class: `kpi${tone ? ` kpi-${tone}` : ""}` }, h("p", { class: "kpi-label" }, tone ? h("span", { class: `dot key-${tone}` }) : null, label), h("p", { class: "kpi-value" }, value), h("p", { class: "kpi-foot" }, foot));
 }
@@ -126,7 +143,7 @@ function emptyState(ctx) {
   return h(
     "div",
     { class: "empty empty-hero" },
-    h("div", { class: "empty-art", "aria-hidden": "true" }, h("span", { class: "empty-path" }), h("span", { class: "empty-pin" }, icon("pin", 26)), h("span", { class: "empty-qr" }, icon("chat", 22))),
+    h("div", { class: "empty-art", "aria-hidden": "true" }, h("span", { class: "empty-path" }), h("span", { class: "empty-pin" }, icon("starline", 26)), h("span", { class: "empty-qr" }, icon("chat", 22))),
     h("h1", { class: "section-title" }, "Todavía no llegaron opiniones"),
     h("p", { class: "muted" }, "Cuando tus clientes escaneen el QR y puntúen su experiencia, acá vas a ver el promedio, la evolución y las opiniones para resolver."),
     h(

@@ -29,8 +29,8 @@ async function feedback(slug: string) {
 /** Cada visitante usa un contexto nuevo (otra sesión anónima, como otro celular). */
 async function visitor(browser: Browser) {
   const ctx = await browser.newContext({ ...devices["Pixel 7"], locale: "es-AR" });
-  // Google Maps no se abre de verdad en las pruebas.
-  await ctx.route("https://g.page/**", (r) => r.fulfill({ contentType: "text/html", body: "<title>Google Maps (simulado)</title><h1>GOOGLE OK</h1>" }));
+  // Google no se abre de verdad en las pruebas.
+  await ctx.route("https://g.page/**", (r) => r.fulfill({ contentType: "text/html", body: "<title>Google (simulado)</title><h1>GOOGLE OK</h1>" }));
   await ctx.route("https://maps.app.goo.gl/**", (r) => r.fulfill({ contentType: "text/html", body: "<h1>GOOGLE NUEVO</h1>" }));
   const page = await ctx.newPage();
   return { ctx, page };
@@ -67,7 +67,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => env?.cleanup());
 
-test("5 estrellas: registra, agradece y abre Google Maps del negocio", async ({ browser }) => {
+test("5 estrellas: registra, agradece y abre las reseñas de Google del negocio", async ({ browser }) => {
   const { ctx, page } = await visitor(browser);
   await page.goto(`${BASE}?c=cafe-test`);
   await expect(page.getByText("Café de Prueba", { exact: true })).toBeVisible();
@@ -81,7 +81,7 @@ test("5 estrellas: registra, agradece y abre Google Maps del negocio", async ({ 
   expect(box!.width).toBeGreaterThanOrEqual(44);
   await star.click();
   await expect(page.getByRole("heading", { name: "¡Gracias por tu opinión!" })).toBeVisible();
-  const btn = page.getByRole("link", { name: /Continuar a Google Maps/ });
+  const btn = page.getByRole("link", { name: /Escribir mi reseña en Google/ });
   await expect(btn).toBeVisible();
   await expect(btn).toHaveAttribute("href", GOOGLE);
   await page.screenshot({ path: `${SHOTS}/02-cinco-estrellas.png` });
@@ -94,13 +94,13 @@ test("5 estrellas: registra, agradece y abre Google Maps del negocio", async ({ 
 });
 
 for (const rating of [1, 2, 3, 4]) {
-  test(`${rating} estrella(s): pide qué mejorar, guarda y ofrece Google Maps`, async ({ browser }) => {
+  test(`${rating} estrella(s): pide qué mejorar, guarda y ofrece Google`, async ({ browser }) => {
     const { ctx, page } = await visitor(browser);
     await page.goto(`${BASE}?c=cafe-test`);
     await page.getByRole("radio", { name: new RegExp(`^${rating} estrella`) }).click();
     await expect(page.getByRole("heading", { name: "¿Qué podríamos mejorar?" })).toBeVisible();
     await expect(page.getByRole("img", { name: `Elegiste ${rating} de 5 estrellas` })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Opinar en Google Maps/ })).toHaveAttribute("href", GOOGLE);
+    await expect(page.getByRole("link", { name: /Escribir una reseña en Google/ })).toHaveAttribute("href", GOOGLE);
     const comment = rating === 3 ? "" : `Comentario de ${rating} estrellas`;
     if (comment) await page.getByLabel(/Qué podríamos mejorar/).fill(comment);
     if (rating === 2) await page.waitForTimeout(1000);
@@ -110,7 +110,7 @@ for (const rating of [1, 2, 3, 4]) {
     await send.dblclick();
     await expect(page.getByRole("heading", { name: "¡Gracias! Recibimos tu opinión." })).toBeVisible();
     await expect(page.getByText("No se publicó en Google")).toBeVisible();
-    await expect(page.getByRole("link", { name: /reseña pública en Google Maps/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /reseña pública en Google/ })).toBeVisible();
     if (rating === 2) await page.screenshot({ path: `${SHOTS}/04-confirmacion.png` });
     const mine = (await feedback("cafe-test")).filter((f) => f.rating === rating);
     expect(mine).toHaveLength(1);
@@ -151,7 +151,8 @@ test("panel: resumen con datos reales, filtros, nota y resolución persistentes"
   await expect(kpi("Positivas")).toHaveText("2");
   await expect(kpi("Negativas")).toHaveText("2");
   await expect(kpi("Pendientes de resolver")).toHaveText("4");
-  await expect(page.getByText("No es tu calificación de Google")).toBeVisible();
+  await expect(page.getByText("No son tus reseñas de Google")).toBeVisible();
+  await expect(page.getByText("Tus reseñas públicas están en Google")).toBeVisible();
   await expect(page.locator(".dist-row")).toHaveCount(5);
   // Tooltip del gráfico.
   await page.locator(".chart-plot rect[data-i]").last().hover();
@@ -168,6 +169,8 @@ test("panel: resumen con datos reales, filtros, nota y resolución persistentes"
   await expect(page.getByText("SECRETO-AJENO")).toHaveCount(0);
   const chip = (name: string) => page.locator(".chip", { hasText: name });
   await expect(chip("Positivas").locator(".chip-count")).toHaveText("2");
+  await chip("Intermedias").click();
+  await expect(page.locator(".review")).toHaveCount(1);
   await chip("Negativas").click();
   await expect(page.locator(".review")).toHaveCount(2);
   await chip("Pendientes").click();
@@ -215,10 +218,10 @@ test("panel: resumen con datos reales, filtros, nota y resolución persistentes"
 test("configuración: valida y actualiza el enlace de Google que usa la pantalla pública", async ({ page, browser }) => {
   await login(page);
   await page.getByRole("navigation").first().getByRole("link", { name: "Configuración" }).click();
-  const g = page.getByLabel("Enlace para dejar una reseña");
+  const g = page.getByLabel("Enlace directo a tus reseñas de Google");
   await g.fill("https://evil.com/maps");
   await g.blur();
-  await expect(page.getByText("Tiene que ser un enlace de Google Maps")).toBeVisible();
+  await expect(page.getByText("Tiene que ser el enlace de reseñas")).toBeVisible();
   await page.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(page.getByText("Cambios guardados")).toHaveCount(0);
   await g.fill("https://maps.app.goo.gl/nuevo123");
@@ -230,7 +233,7 @@ test("configuración: valida y actualiza el enlace de Google que usa la pantalla
   await expect(page.locator(".link-field code")).toHaveText(`${BASE}?c=cafe-test`);
   await page.screenshot({ path: `${SHOTS}/08-configuracion.png`, fullPage: true });
   await page.reload();
-  await expect(page.getByLabel("Enlace para dejar una reseña")).toHaveValue("https://maps.app.goo.gl/nuevo123");
+  await expect(page.getByLabel("Enlace directo a tus reseñas de Google")).toHaveValue("https://maps.app.goo.gl/nuevo123");
 
   let profile: Record<string, unknown> = {};
   await env.withSecurityRulesDisabled(async (ctx) => {
@@ -241,7 +244,7 @@ test("configuración: valida y actualiza el enlace de Google que usa la pantalla
   const { ctx, page: pub } = await visitor(browser);
   await pub.goto(`${BASE}?c=cafe-test`);
   await pub.getByRole("radio", { name: /^2 estrellas/ }).click();
-  await expect(pub.getByRole("link", { name: /Opinar en Google Maps/ })).toHaveAttribute("href", "https://maps.app.goo.gl/nuevo123");
+  await expect(pub.getByRole("link", { name: /Escribir una reseña en Google/ })).toHaveAttribute("href", "https://maps.app.goo.gl/nuevo123");
   await ctx.close();
 });
 
@@ -251,6 +254,8 @@ test("aislamiento: un dueño no accede al panel de otro negocio", async ({ page 
   await page.goto(`${BASE}#/panel/ajeno/opiniones`);
   await expect(page.getByRole("heading", { name: "No encontramos ese negocio" })).toBeVisible();
   await expect(page.getByText("SECRETO-AJENO")).toHaveCount(0);
+  // Sin mapas: la identidad es de reseñas.
+  await expect(page.locator(".review-art, .pub-art, .panel-art").first()).toBeAttached();
   await page.goto(`${BASE}#/panel/ajeno/opiniones/aaaaaaaaaaaaaaaaaaaaaaaa`);
   await expect(page.getByText("SECRETO-AJENO")).toHaveCount(0);
 });
@@ -265,7 +270,7 @@ test("dueño con varios negocios elige cuál abrir; panel en celular", async ({ 
   await expect(page.locator(".bottom-nav")).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: `${SHOTS}/09-panel-celular.png`, fullPage: true });
+  await page.screenshot({ path: `${SHOTS}/09-panel-celular.png`, fullPage: true, timeout: 15_000 });
   await page.locator(".bottom-nav").getByRole("link", { name: "Opiniones" }).click();
   await expect(page.getByText("SECRETO-AJENO")).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);

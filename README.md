@@ -1,10 +1,12 @@
-# Pagina-QR
+# ReseñaQR
 
-Opiniones de clientes desde un QR físico, con un panel privado para el negocio.
+Reseñas y opiniones de clientes desde un QR físico, con un panel privado para gestionar la reputación del negocio.
+
+> ReseñaQR no es un producto de Google ni importa las reseñas públicas de Google. Recibe opiniones privadas por el QR y lleva al cliente al enlace de reseñas del negocio para que, si quiere, publique la suya.
 
 - **Pantalla pública** (`…/?c=<negocio>`): el cliente puntúa de 1 a 5 estrellas sin registrarse.
-  - **5 estrellas:** se registra la puntuación, se agradece y se abre el enlace de Google Maps del negocio. Si el navegador no redirige, queda un botón visible.
-  - **1 a 4 estrellas:** «¿Qué podríamos mejorar?», comentario opcional y envío. El botón de Google Maps sigue disponible siempre.
+  - **5 estrellas:** se registra la puntuación, se agradece y se abre el enlace de reseñas de Google del negocio. Si el navegador no redirige, queda un botón visible.
+  - **1 a 4 estrellas:** «¿Qué podríamos mejorar?», comentario opcional y envío. El botón para reseñar en Google sigue disponible siempre.
   - La opinión interna nunca se publica en Google; la pantalla lo aclara.
 - **Panel privado** (`…/#/login`): resumen con datos reales (7 días, 30 días o todo), opiniones con filtros, nota interna con guardado automático, casilla «resuelta» y configuración del negocio.
 
@@ -55,7 +57,7 @@ npm run negocio:crear -- --clave ~/claves/cuenta-servicio.json \
 - Muestra una contraseña aleatoria **una sola vez**. Para elegirla, agregá `--password`.
 - Si el email ya existe, vincula esa cuenta al negocio.
 - Para pausar o reanudar la página pública: `--slug cafe-la-esquina --suspender` o `--activar`.
-- El QR debe apuntar a `https://<tu-web>/?c=cafe-la-esquina`. Ese enlace no cambia aunque el dueño cambie el enlace de Google Maps.
+- El QR debe apuntar a `https://<tu-web>/?c=cafe-la-esquina`. Ese enlace no cambia aunque el dueño cambie el enlace de reseñas de Google.
 
 ## Desarrollo y pruebas
 
