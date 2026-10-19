@@ -43,6 +43,9 @@ async function login(page: Page, email = "dueno@e2e.test") {
   await page.getByRole("button", { name: "Ingresar" }).click();
 }
 
+/** Cualquier enlace o botón que lleve a Google (no debe existir con 1 a 4 estrellas). */
+const googleLinks = (page: Page) => page.locator('a[href*="g.page"], a[href*="goo.gl"], a[href*="google."], [data-google]');
+
 const noHorizontalScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 
 test.describe.configure({ mode: "serial" });
@@ -58,6 +61,7 @@ test.beforeAll(async () => {
   crearNegocio(["--slug", "ajeno", "--nombre", "Negocio Ajeno", "--email", "otro@e2e.test", "--password", PASSWORD]);
   crearNegocio(["--slug", "pausado", "--nombre", "Pausado", "--email", "otro@e2e.test"]);
   crearNegocio(["--slug", "pausado", "--suspender"]);
+  crearNegocio(["--slug", "cambio", "--nombre", "Cambio de Puntuación", "--email", "otro@e2e.test", "--google", GOOGLE]);
   // Una opinión del otro negocio que el dueño de prueba nunca debe ver.
   await env.withSecurityRulesDisabled(async (ctx) => {
     const { setDoc } = await import("firebase/firestore");
@@ -94,13 +98,14 @@ test("5 estrellas: registra, agradece y abre las reseñas de Google del negocio"
 });
 
 for (const rating of [1, 2, 3, 4]) {
-  test(`${rating} estrella(s): pide qué mejorar, guarda y ofrece Google`, async ({ browser }) => {
+  test(`${rating} estrella(s): pide qué mejorar, guarda y NO ofrece Google`, async ({ browser }) => {
     const { ctx, page } = await visitor(browser);
     await page.goto(`${BASE}?c=cafe-test`);
     await page.getByRole("radio", { name: new RegExp(`^${rating} estrella`) }).click();
     await expect(page.getByRole("heading", { name: "¿Qué podríamos mejorar?" })).toBeVisible();
     await expect(page.getByRole("img", { name: `Elegiste ${rating} de 5 estrellas` })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Escribir una reseña en Google/ })).toHaveAttribute("href", GOOGLE);
+    await expect(googleLinks(page)).toHaveCount(0);
+    await expect(page.getByText(/Google/)).toHaveCount(0);
     const comment = rating === 3 ? "" : `Comentario de ${rating} estrellas`;
     if (comment) await page.getByLabel(/Qué podríamos mejorar/).fill(comment);
     if (rating === 2) await page.waitForTimeout(1000);
@@ -109,8 +114,11 @@ for (const rating of [1, 2, 3, 4]) {
     const send = page.getByRole("button", { name: "Enviar opinión" });
     await send.dblclick();
     await expect(page.getByRole("heading", { name: "¡Gracias! Recibimos tu opinión." })).toBeVisible();
-    await expect(page.getByText("No se publicó en Google")).toBeVisible();
-    await expect(page.getByRole("link", { name: /reseña pública en Google/ })).toBeVisible();
+    await expect(page.getByText("para mejorar")).toBeVisible();
+    await expect(googleLinks(page)).toHaveCount(0);
+    // Tampoco hay redirección a Google.
+    await page.waitForTimeout(2500);
+    expect(page.url()).toContain("localhost:4174");
     if (rating === 2) await page.screenshot({ path: `${SHOTS}/04-confirmacion.png` });
     const mine = (await feedback("cafe-test")).filter((f) => f.rating === rating);
     expect(mine).toHaveLength(1);
@@ -118,6 +126,29 @@ for (const rating of [1, 2, 3, 4]) {
     await ctx.close();
   });
 }
+
+test("cambiar de 5 a 4 estrellas: el botón de Google desaparece al instante", async ({ browser }) => {
+  const { ctx, page } = await visitor(browser);
+  await page.goto(`${BASE}?c=cambio`);
+  await page.getByRole("radio", { name: /^5 estrellas/ }).click();
+  await expect(page.getByRole("link", { name: /Escribir mi reseña en Google/ })).toHaveAttribute("href", GOOGLE);
+  await page.getByRole("button", { name: "Cambiar puntuación" }).click();
+  await expect(googleLinks(page)).toHaveCount(0);
+  await page.getByRole("radio", { name: /^4 estrellas/ }).click();
+  await expect(page.getByRole("heading", { name: "¿Qué podríamos mejorar?" })).toBeVisible();
+  await expect(googleLinks(page)).toHaveCount(0);
+  await page.getByLabel(/Qué podríamos mejorar/).fill("Cambié a 4");
+  await page.getByRole("button", { name: "Enviar opinión" }).click();
+  await expect(page.getByRole("heading", { name: "¡Gracias! Recibimos tu opinión." })).toBeVisible();
+  await expect(googleLinks(page)).toHaveCount(0);
+  // No hubo redirección pendiente de la selección anterior.
+  await page.waitForTimeout(3000);
+  expect(page.url()).toContain("localhost:4174");
+  const saved = await feedback("cambio");
+  expect(saved).toHaveLength(1);
+  expect(saved[0]).toMatchObject({ rating: 4, comment: "Cambié a 4" });
+  await ctx.close();
+});
 
 test("negocio inexistente o suspendido", async ({ browser }) => {
   const { ctx, page } = await visitor(browser);
@@ -243,8 +274,9 @@ test("configuración: valida y actualiza el enlace de Google que usa la pantalla
 
   const { ctx, page: pub } = await visitor(browser);
   await pub.goto(`${BASE}?c=cafe-test`);
-  await pub.getByRole("radio", { name: /^2 estrellas/ }).click();
-  await expect(pub.getByRole("link", { name: /Escribir una reseña en Google/ })).toHaveAttribute("href", "https://maps.app.goo.gl/nuevo123");
+  await pub.getByRole("radio", { name: /^5 estrellas/ }).click();
+  await expect(pub.getByRole("link", { name: /Escribir mi reseña en Google/ })).toHaveAttribute("href", "https://maps.app.goo.gl/nuevo123");
+  await pub.waitForURL("https://maps.app.goo.gl/nuevo123", { timeout: 10_000 });
   await ctx.close();
 });
 

@@ -19,7 +19,7 @@ export async function renderPublic(root, store, slug) {
   if (!b.active) return mount(root, message("clock", b.name, "Esta página de opiniones no está disponible en este momento."));
 
   store.warmUp();
-  const google = b.googleReviewUrl && checkGoogleUrl(b.googleReviewUrl).ok ? b.googleReviewUrl : null;
+  const configuredGoogle = b.googleReviewUrl && checkGoogleUrl(b.googleReviewUrl).ok ? b.googleReviewUrl : null;
   // Un id por visita: si un envío se reintenta, no se duplica.
   const state = { rating: 0, comment: "", id: newFeedbackId(), saved: false, saving: null, locked: false };
 
@@ -42,7 +42,9 @@ export async function renderPublic(root, store, slug) {
     ),
   );
 
+  let screen = 0; // cambia con cada pantalla: invalida redirecciones pendientes
   const show = (...content) => {
+    screen++;
     stage.replaceChildren(h("section", { class: "screen" }, ...content));
     const focus = stage.querySelector("[data-autofocus]") ?? stage.querySelector("h1");
     focus?.focus({ preventScroll: true });
@@ -64,8 +66,13 @@ export async function renderPublic(root, store, slug) {
     return state.saving;
   }
 
-  const googleLink = (label, variant, onclick) =>
-    h("a", { class: `btn ${variant}`, href: google, rel: "noopener noreferrer", target: variant === "btn-google" ? undefined : "_blank", onclick }, icon("pen", 18), h("span", {}, label), icon("external", 16, "ext"));
+  // Única puerta hacia Google: solo existe con 5 estrellas elegidas.
+  // Con 1 a 4 estrellas no se genera ningún enlace, botón ni redirección.
+  const googleUrl = () => (state.rating === 5 ? configuredGoogle : null);
+  const googleLink = (label) => {
+    const url = googleUrl();
+    return url ? h("a", { class: "btn btn-google", href: url, rel: "noopener noreferrer" }, icon("pen", 18), h("span", {}, label), icon("external", 16, "ext")) : null;
+  };
 
   // ── 1. Puntuación ────────────────────────────────────────────────
   function rateScreen() {
@@ -129,11 +136,17 @@ export async function renderPublic(root, store, slug) {
   }
 
   // ── 2a. Cinco estrellas: gracias y a Google ─────────────────
+  // Durante la cuenta regresiva se puede cambiar la puntuación: recién al
+  // terminar (o al tocar el botón) se guarda la opinión y se abre Google.
   function fiveScreen() {
-    const status = h("p", { class: "pub-text", "aria-live": "polite" }, "Guardando tu opinión…");
+    const google = googleUrl();
+    const mine = screen + 1;
+    const onScreen = () => screen === mine && googleUrl() === google;
+    const status = h("p", { class: "pub-text", "aria-live": "polite" }, google ? "Te llevamos a Google para que, si querés, publiques tu reseña." : "Guardando tu opinión…");
     const bar = h("div", { class: "go-bar", "aria-hidden": "true" }, h("span"));
     const actions = h("div", { class: "pub-actions" });
     const change = h("button", { type: "button", class: "btn-link", onclick: () => rateScreen() }, "Cambiar puntuación");
+    let leaving = false;
 
     show(
       celebrate(),
@@ -141,39 +154,56 @@ export async function renderPublic(root, store, slug) {
       status,
       google ? bar : null,
       actions,
-      google ? h("p", { class: "pub-fine" }, icon("lock", 14), h("span", {}, `Tu puntuación ya la recibió ${b.name}. La reseña en Google la escribís y publicás vos, si querés.`)) : null,
+      google ? h("p", { class: "pub-fine" }, icon("lock", 14), h("span", {}, `Tu puntuación la recibe ${b.name}. La reseña en Google la escribís y publicás vos, si querés.`)) : null,
+      change,
     );
-    if (google) actions.append(googleLink("Escribir mi reseña en Google", "btn-google"));
 
-    const started = Date.now();
-    save().then(
-      () => {
-        change.remove();
-        if (!google) {
-          status.textContent = `${b.name} ya recibió tu puntuación.`;
-          return;
-        }
-        status.textContent = "Te llevamos a Google para que, si querés, publiques tu reseña.";
-        const wait = Math.max(0, (reducedMotion() ? 900 : 1900) - (Date.now() - started));
-        bar.classList.add("run");
-        bar.firstChild.style.animationDuration = `${wait}ms`;
-        setTimeout(() => {
-          // Navegación en la misma pestaña: no la bloquean los navegadores móviles.
-          // Si igual no ocurre (navegador integrado de una app), queda el botón.
-          window.location.assign(google);
-          setTimeout(() => {
-            if (document.visibilityState === "visible") status.textContent = "¿No se abrió Google? Tocá el botón.";
-            bar.remove();
-          }, 2500);
-        }, wait);
-      },
-      (e) => {
-        bar.remove();
+    /** Guarda (si hace falta) y abre Google en la misma pestaña. */
+    async function go() {
+      if (leaving || !onScreen()) return;
+      leaving = true;
+      change.remove();
+      bar.remove();
+      try {
+        await save();
+      } catch (e) {
+        // Si no se pudo guardar, igual se le permite publicar en Google.
         status.replaceChildren(errorBox(e.message));
-        actions.prepend(h("button", { class: "btn btn-primary", type: "button", onclick: () => fiveScreen() }, "Reintentar"));
-        actions.append(change);
-      },
-    );
+      }
+      if (!onScreen()) return;
+      // Navegación en la misma pestaña: no la bloquean los navegadores móviles.
+      // Si igual no ocurre (navegador integrado de una app), queda el botón.
+      window.location.assign(google);
+      setTimeout(() => {
+        if (document.visibilityState === "visible" && onScreen()) status.textContent = "¿No se abrió Google? Tocá el botón.";
+        leaving = false;
+      }, 2500);
+    }
+
+    if (!google) {
+      save().then(
+        () => {
+          change.remove();
+          status.textContent = `${b.name} ya recibió tu puntuación.`;
+        },
+        (e) => {
+          status.replaceChildren(errorBox(e.message));
+          actions.append(h("button", { class: "btn btn-primary", type: "button", onclick: () => fiveScreen() }, "Reintentar"));
+        },
+      );
+      return;
+    }
+
+    const link = googleLink("Escribir mi reseña en Google");
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      go();
+    });
+    actions.append(link);
+    const wait = reducedMotion() ? 1200 : 2200;
+    bar.classList.add("run");
+    bar.firstChild.style.animationDuration = `${wait}ms`;
+    setTimeout(go, wait);
   }
 
   // ── 2b. De 1 a 4 estrellas: ¿qué podríamos mejorar? ──────────────
@@ -225,17 +255,6 @@ export async function renderPublic(root, store, slug) {
       h("h1", { class: "pub-title", tabindex: "-1" }, "¿Qué podríamos mejorar?"),
       h("p", { class: "pub-text" }, `Tu comentario le llega solo al equipo de ${b.name}. No se publica.`),
       form,
-      google
-        ? h(
-            "div",
-            { class: "pub-alt" },
-            h("span", {}, "¿Preferís opinar en público?"),
-            googleLink("Escribir una reseña en Google", "btn-quiet small", () => {
-              // Se guarda lo que haya escrito y se abre Google en otra pestaña.
-              save().then(doneScreen, () => undefined);
-            }),
-          )
-        : null,
     );
   }
 
@@ -244,8 +263,7 @@ export async function renderPublic(root, store, slug) {
     show(
       celebrate(),
       h("h1", { class: "pub-title", tabindex: "-1" }, "¡Gracias! Recibimos tu opinión."),
-      h("p", { class: "pub-text" }, `La lee solo el equipo de ${b.name} para mejorar. No se publicó en Google.`),
-      google ? h("div", { class: "pub-actions" }, googleLink("Dejar también una reseña pública en Google", "btn-quiet")) : null,
+      h("p", { class: "pub-text" }, `La lee solo el equipo de ${b.name} para mejorar.`),
     );
   }
 
