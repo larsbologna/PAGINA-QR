@@ -7,42 +7,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        # Superusuario solo para inicializar; la app usa el rol "reputacion" sin BYPASSRLS.
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgresql://reputacion:reputacion@localhost:5432/reputacion?schema=public
-      TEST_DATABASE_URL: postgresql://reputacion:reputacion@localhost:5432/reputacion_test?schema=public
-      E2E_DATABASE_URL: postgresql://reputacion:reputacion@localhost:5432/reputacion_e2e?schema=public
-      APP_URL: http://localhost:3000
-      APP_SECRET: ci-secret-0123456789abcdef
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - name: Crear rol de la app (sin BYPASSRLS) y bases
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/sql/init-local.sql
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-
-  web:
-    # Web estática (GitHub Pages + Firebase): reglas de Firestore y pruebas de
-    # navegador contra los emuladores oficiales de Firebase.
+    # Reglas de Firestore y recorridos completos en el navegador contra los
+    # emuladores oficiales de Firebase.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -54,6 +20,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:web
+      - run: npm test

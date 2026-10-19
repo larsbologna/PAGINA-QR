@@ -1,22 +1,11 @@
 node_modules/
-.next/
-out/
-coverage/
 playwright-report/
 test-results/
-*.tsbuildinfo
-next-env.d.ts
-.env
-.env.local
-.env.test.local
-.env.e2e.local
-.DS_Store
-npm-debug.log*
-
-# Datos locales del iniciador (base de datos y claves)
-.datos/
-CREDENCIALES.txt
 web/dist/
 web/dist-emu/
-firestore-debug.log
-firebase-debug.log
+*-debug.log
+.DS_Store
+npm-debug.log*
+# Clave privada de la cuenta de servicio de Firebase (nunca al repositorio)
+*cuenta-servicio*.json
+serviceAccount*.json

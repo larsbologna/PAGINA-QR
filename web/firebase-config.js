@@ -8,8 +8,8 @@
  * Estos datos NO son secretos: identifican tu proyecto. La seguridad la dan las
  * reglas de Firestore (archivo firestore.rules).
  *
- * Mientras apiKey esté vacío, la web funciona en MODO DEMO: muestra un comercio
- * de ejemplo y guarda las opiniones solo en el navegador de quien la usa.
+ * Mientras apiKey esté vacío, la web muestra un aviso de configuración pendiente
+ * (no simula datos).
  */
 window.FIREBASE_CONFIG = {
   apiKey: "",
