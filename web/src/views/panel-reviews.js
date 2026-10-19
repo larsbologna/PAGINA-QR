@@ -16,7 +16,7 @@ export function renderReviews(root, ctx, sub) {
   const listEl = h("div", { class: "reviews" });
   const chips = h("div", { class: "chips", role: "group", "aria-label": "Filtrar opiniones" });
   root.replaceChildren(
-    h("div", { class: "section-head" }, h("div", {}, h("h1", { class: "section-title" }, "Opiniones"), h("p", { class: "section-sub" }, icon("lock", 14), h("span", {}, "Recibidas por tu QR. Las notas internas son privadas."))), chips),
+    h("div", { class: "section-head" }, h("div", {}, h("h1", { class: "section-title" }, "Opiniones"), h("p", { class: "section-sub" }, icon("lock", 14), h("span", {}, "Opiniones privadas recibidas por tu QR (no son reseñas de Google). Las notas internas son solo tuyas."))), chips),
     listEl,
   );
 
@@ -38,7 +38,7 @@ export function renderReviews(root, ctx, sub) {
     const items = applyFilter(ctx.feedback, filter);
     if (!items.length) {
       const msg = ctx.feedback.length
-        ? { pendientes: "No hay opiniones pendientes. Todo resuelto.", resueltas: "Todavía no marcaste opiniones como resueltas.", positivas: "Todavía no hay opiniones positivas.", negativas: "No hay opiniones negativas." }[filter] ?? "No hay opiniones con este filtro."
+        ? { pendientes: "No hay opiniones pendientes. Todo resuelto.", resueltas: "Todavía no marcaste opiniones como resueltas.", positivas: "Todavía no hay opiniones positivas.", intermedias: "No hay opiniones de 3 estrellas.", negativas: "No hay opiniones negativas." }[filter] ?? "No hay opiniones con este filtro."
         : "Cuando tus clientes escaneen el QR, sus opiniones van a aparecer acá.";
       return listEl.replaceChildren(h("div", { class: "empty" }, h("span", { class: "empty-icon" }, icon(filter === "pendientes" ? "check" : "inbox", 28)), h("p", { class: "muted" }, msg)));
     }
@@ -175,7 +175,7 @@ export function renderReviews(root, ctx, sub) {
         "div",
         { class: "drawer-head" },
         h("button", { type: "button", class: "icon-btn", onclick: close, "aria-label": "Cerrar detalle" }, icon("close", 20)),
-        h("p", { class: "drawer-kicker" }, "Opinión recibida por el QR"),
+        h("p", { class: "drawer-kicker" }, "Opinión privada · recibida por el QR"),
       ),
       h(
         "div",

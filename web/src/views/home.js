@@ -1,7 +1,7 @@
 // Raíz de la web (sin ?c=): solo identifica el servicio y lleva al panel.
 // Los clientes nunca llegan acá: el QR abre directamente ?c=<negocio>.
 import { BRAND, brandLogo } from "../brand.js";
-import { mapArt } from "../map-art.js";
+import { reviewArt } from "../review-art.js";
 import { h, mount } from "../ui.js";
 
 export function renderHome(root, notice) {
@@ -11,7 +11,7 @@ export function renderHome(root, notice) {
     h(
       "div",
       { class: "auth" },
-      h("div", { class: "auth-map" }, mapArt("inicio", { width: 1200, height: 800 })),
+      h("div", { class: "auth-art" }, reviewArt("inicio", { width: 1200, height: 800 })),
       h(
         "main",
         { class: "auth-card center" },

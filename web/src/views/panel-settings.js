@@ -26,7 +26,7 @@ export function renderSettings(root, ctx) {
     if (!v) {
       test.removeAttribute("href");
       test.setAttribute("aria-disabled", "true");
-      googleState.replaceChildren(icon("alert", 14), h("span", {}, "Sin enlace: tus clientes no verán el botón de Google Maps."));
+      googleState.replaceChildren(icon("alert", 14), h("span", {}, "Sin enlace: tus clientes no verán el botón para reseñar en Google."));
       googleState.dataset.kind = "warn";
       if (errEl) errEl.textContent = "";
       return { ok: true, url: null };
@@ -137,10 +137,10 @@ export function renderSettings(root, ctx) {
     h(
       "section",
       { class: "card" },
-      h("div", { class: "card-head" }, h("h2", {}, "Google Maps"), h("p", { class: "muted small" }, "Adonde va el cliente para dejar su reseña pública.")),
+      h("div", { class: "card-head" }, h("h2", {}, "Reseñas de Google"), h("p", { class: "muted small" }, "Adonde va el cliente para escribir su reseña pública.")),
       field(
         "google",
-        "Enlace para dejar una reseña",
+        "Enlace directo a tus reseñas de Google",
         google,
         "En tu Perfil de Empresa de Google, entrá a «Pedir reseñas» y copiá el enlace. Podés cambiarlo cuando quieras: el QR impreso sigue funcionando.",
         h("div", { class: "url-row" }, googleState, test),

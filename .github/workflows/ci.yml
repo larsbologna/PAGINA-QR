@@ -23,3 +23,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-pruebas
+          path: test-results/
+          retention-days: 7

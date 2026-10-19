@@ -2,7 +2,7 @@
 import { BRAND, brandMark } from "../brand.js";
 import { COMMENT_MAX, RATING_LABELS, newFeedbackId } from "../lib/feedback.js";
 import { checkGoogleUrl } from "../lib/google-url.js";
-import { mapArt } from "../map-art.js";
+import { reviewArt } from "../review-art.js";
 import { h, icon, logoEl, mount, reducedMotion, spinner, starIcon } from "../ui.js";
 
 export async function renderPublic(root, store, slug) {
@@ -14,7 +14,7 @@ export async function renderPublic(root, store, slug) {
   } catch (e) {
     return mount(root, message("alert", "No pudimos cargar esta página", `${e.message}`, h("button", { class: "btn btn-primary", onclick: () => renderPublic(root, store, slug) }, "Reintentar")));
   }
-  if (!b) return mount(root, message("pin", "No encontramos este negocio", "Revisá el enlace o volvé a escanear el código QR."));
+  if (!b) return mount(root, message("store", "No encontramos este negocio", "Revisá el enlace o volvé a escanear el código QR."));
   document.title = `Tu opinión sobre ${b.name}`;
   if (!b.active) return mount(root, message("clock", b.name, "Esta página de opiniones no está disponible en este momento."));
 
@@ -30,15 +30,15 @@ export async function renderPublic(root, store, slug) {
     h(
       "div",
       { class: "pub" },
-      h("div", { class: "pub-map" }, mapArt(slug)),
+      h("div", { class: "pub-art" }, reviewArt(slug)),
       h(
         "main",
         { class: "pub-sheet" },
-        h("div", { class: "pub-pin" }, h("div", { class: "pub-pin-head" }, logoEl(b, 56))),
-        h("header", { class: "pub-head" }, h("p", { class: "pub-name" }, b.name), where ? h("p", { class: "pub-where" }, icon("pin", 14), h("span", {}, where)) : null),
+        h("div", { class: "pub-badge" }, logoEl(b, 60)),
+        h("header", { class: "pub-head" }, h("p", { class: "pub-name" }, b.name), where ? h("p", { class: "pub-where" }, icon("store", 14), h("span", {}, where)) : null),
         stage,
       ),
-      h("footer", { class: "pub-foot" }, h("p", {}, `Tu opinión la recibe solo ${b.name}.`), h("p", { class: "pub-made" }, brandMark(14), BRAND.name)),
+      h("footer", { class: "pub-foot" }, h("p", {}, `Tu opinión la recibe solo ${b.name}.`), h("p", { class: "pub-made" }, brandMark(14), `Opiniones con ${BRAND.name}`)),
     ),
   );
 
@@ -65,7 +65,7 @@ export async function renderPublic(root, store, slug) {
   }
 
   const googleLink = (label, variant, onclick) =>
-    h("a", { class: `btn ${variant}`, href: google, rel: "noopener noreferrer", target: variant === "btn-google" ? undefined : "_blank", onclick }, icon("pin", 18), h("span", {}, label), icon("external", 16, "ext"));
+    h("a", { class: `btn ${variant}`, href: google, rel: "noopener noreferrer", target: variant === "btn-google" ? undefined : "_blank", onclick }, icon("pen", 18), h("span", {}, label), icon("external", 16, "ext"));
 
   // ── 1. Puntuación ────────────────────────────────────────────────
   function rateScreen() {
@@ -128,7 +128,7 @@ export async function renderPublic(root, store, slug) {
     if (state.rating) paint(state.rating);
   }
 
-  // ── 2a. Cinco estrellas: gracias y a Google Maps ─────────────────
+  // ── 2a. Cinco estrellas: gracias y a Google ─────────────────
   function fiveScreen() {
     const status = h("p", { class: "pub-text", "aria-live": "polite" }, "Guardando tu opinión…");
     const bar = h("div", { class: "go-bar", "aria-hidden": "true" }, h("span"));
@@ -143,7 +143,7 @@ export async function renderPublic(root, store, slug) {
       actions,
       google ? h("p", { class: "pub-fine" }, icon("lock", 14), h("span", {}, `Tu puntuación ya la recibió ${b.name}. La reseña en Google la escribís y publicás vos, si querés.`)) : null,
     );
-    if (google) actions.append(googleLink("Continuar a Google Maps", "btn-google"));
+    if (google) actions.append(googleLink("Escribir mi reseña en Google", "btn-google"));
 
     const started = Date.now();
     save().then(
@@ -153,7 +153,7 @@ export async function renderPublic(root, store, slug) {
           status.textContent = `${b.name} ya recibió tu puntuación.`;
           return;
         }
-        status.textContent = "Te llevamos a Google Maps para que puedas dejar tu reseña pública.";
+        status.textContent = "Te llevamos a Google para que, si querés, publiques tu reseña.";
         const wait = Math.max(0, (reducedMotion() ? 900 : 1900) - (Date.now() - started));
         bar.classList.add("run");
         bar.firstChild.style.animationDuration = `${wait}ms`;
@@ -162,7 +162,7 @@ export async function renderPublic(root, store, slug) {
           // Si igual no ocurre (navegador integrado de una app), queda el botón.
           window.location.assign(google);
           setTimeout(() => {
-            if (document.visibilityState === "visible") status.textContent = "¿No se abrió Google Maps? Tocá el botón.";
+            if (document.visibilityState === "visible") status.textContent = "¿No se abrió Google? Tocá el botón.";
             bar.remove();
           }, 2500);
         }, wait);
@@ -230,7 +230,7 @@ export async function renderPublic(root, store, slug) {
             "div",
             { class: "pub-alt" },
             h("span", {}, "¿Preferís opinar en público?"),
-            googleLink("Opinar en Google Maps", "btn-quiet small", () => {
+            googleLink("Escribir una reseña en Google", "btn-quiet small", () => {
               // Se guarda lo que haya escrito y se abre Google en otra pestaña.
               save().then(doneScreen, () => undefined);
             }),
@@ -245,7 +245,7 @@ export async function renderPublic(root, store, slug) {
       celebrate(),
       h("h1", { class: "pub-title", tabindex: "-1" }, "¡Gracias! Recibimos tu opinión."),
       h("p", { class: "pub-text" }, `La lee solo el equipo de ${b.name} para mejorar. No se publicó en Google.`),
-      google ? h("div", { class: "pub-actions" }, googleLink("Dejar una reseña pública en Google Maps", "btn-quiet")) : null,
+      google ? h("div", { class: "pub-actions" }, googleLink("Dejar también una reseña pública en Google", "btn-quiet")) : null,
     );
   }
 
@@ -265,6 +265,6 @@ function message(ic, title, text, action) {
     "div",
     { class: "pub pub-msg" },
     h("main", { class: "pub-sheet center" }, h("span", { class: "msg-icon" }, icon(ic, 28)), h("h1", { class: "pub-title" }, title), h("p", { class: "pub-text" }, text), action ?? null),
-    h("footer", { class: "pub-foot" }, h("p", { class: "pub-made" }, brandMark(14), BRAND.name)),
+    h("footer", { class: "pub-foot" }, h("p", { class: "pub-made" }, brandMark(14), `Opiniones con ${BRAND.name}`)),
   );
 }

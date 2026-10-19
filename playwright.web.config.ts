@@ -9,6 +9,6 @@ export default defineConfig({
   workers: 1,
   timeout: 60_000,
   reporter: [["list"]],
-  use: { locale: "es-AR", timezoneId: "America/Argentina/Buenos_Aires", ...devices["Desktop Chrome"], launchOptions: chromium ? { executablePath: chromium } : {} },
+  use: { actionTimeout: 15_000, trace: "retain-on-failure", locale: "es-AR", timezoneId: "America/Argentina/Buenos_Aires", ...devices["Desktop Chrome"], launchOptions: chromium ? { executablePath: chromium } : {} },
   webServer: [{ command: "node web/serve.mjs 4174 web/dist-emu", url: "http://localhost:4174/", reuseExistingServer: false }],
 });
