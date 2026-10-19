@@ -1,108 +1,117 @@
 rules_version = '2';
 
-// Reputación OS — reglas de seguridad de Firestore.
+// Pagina-QR — reglas de seguridad de Firestore.
 //
 // Modelo:
-//   admins/{uid}                         superadministradores (se crean a mano desde la consola)
-//   access/{slug}                        { ownerUids: [], ownerEmails: [] }  quién administra cada comercio
-//   businesses/{slug}                    perfil público del comercio (nombre, logo, colores, enlace de Google)
-//   businesses/{slug}/feedback/{id}      opiniones privadas (las crea el público; las lee solo el comercio)
-//   businesses/{slug}/clicks/{yyyy-mm-dd} contador de clics a "Google Maps"
+//   access/{slug}                     { ownerUids: [] }  quién administra cada negocio
+//   businesses/{slug}                 perfil público (nombre, logo, rubro, dirección, enlace de Google)
+//   businesses/{slug}/feedback/{id}   opiniones (las crea el público; las lee y gestiona solo el negocio)
+//   throttle/{uid}                    último envío de cada visitante (límite contra envíos abusivos)
 //
-// Cada comercio solo puede leer y modificar sus propios registros.
+// Los negocios y sus dueños se crean con la herramienta tools/crear-negocio.mjs
+// (Admin SDK, que no pasa por estas reglas). Nadie puede crearlos desde la web.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
-    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
-    function accessDoc(slug) { return /databases/$(database)/documents/access/$(slug); }
+    function accessPath(slug) { return /databases/$(database)/documents/access/$(slug); }
+    function bizPath(slug) { return /databases/$(database)/documents/businesses/$(slug); }
+    function feedbackPath(slug, id) { return /databases/$(database)/documents/businesses/$(slug)/feedback/$(id); }
+    function throttlePath(uid) { return /databases/$(database)/documents/throttle/$(uid); }
     function isOwner(slug) {
-      return signedIn() && exists(accessDoc(slug)) && request.auth.uid in get(accessDoc(slug)).data.ownerUids;
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && exists(accessPath(slug))
+        && request.auth.uid in get(accessPath(slug)).data.ownerUids;
     }
-    function canManage(slug) { return isAdmin() || isOwner(slug); }
     function businessActive(slug) {
-      return exists(/databases/$(database)/documents/businesses/$(slug))
-        && get(/databases/$(database)/documents/businesses/$(slug)).data.active == true;
+      return exists(bizPath(slug)) && get(bizPath(slug)).data.active == true;
     }
     function str(v, max) { return v is string && v.size() <= max; }
 
-    // ── Superadministradores ───────────────────────────────────────────
-    match /admins/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false; // solo desde la consola de Firebase
-    }
+    // Segundos mínimos entre dos opiniones del mismo visitante.
+    function minGap() { return duration.value(30, 's'); }
 
-    // ── Quién administra cada comercio ─────────────────────────────────
+    // ── Quién administra cada negocio ──────────────────────────────────
     match /access/{slug} {
-      allow get: if canManage(slug);
-      // Para que un dueño encuentre "sus" comercios (consulta array-contains).
-      allow list: if isAdmin() || (signedIn() && request.auth.uid in resource.data.ownerUids);
-      allow write: if isAdmin();
+      allow get: if isOwner(slug);
+      // Para que un dueño encuentre "sus" negocios (consulta array-contains).
+      allow list: if signedIn() && request.auth.uid in resource.data.ownerUids;
+      allow write: if false;
     }
 
-    // ── Perfil público del comercio ────────────────────────────────────
+    // ── Perfil público del negocio ─────────────────────────────────────
     function validProfile(d) {
-      return d.keys().hasOnly(['name', 'brandColor', 'logo', 'welcomeMessage', 'thankYouMessage',
-                                'googleReviewUrl', 'categories', 'active', 'isDemo', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['name', 'industry', 'address', 'logo', 'googleReviewUrl', 'active', 'createdAt', 'updatedAt'])
         && str(d.name, 80) && d.name.size() >= 2
-        && d.brandColor is string && d.brandColor.matches('^#[0-9a-fA-F]{6}$')
-        && (d.logo == null || str(d.logo, 300000))
-        && str(d.welcomeMessage, 120) && str(d.thankYouMessage, 200)
-        && (d.googleReviewUrl == null || (str(d.googleReviewUrl, 500) && d.googleReviewUrl.matches('^https://.*')))
-        && d.categories is list && d.categories.size() <= 12
+        && str(d.industry, 60)
+        && str(d.address, 160)
+        && (d.logo == null || (str(d.logo, 200000) && d.logo.matches('^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$')))
+        && (d.googleReviewUrl == null || (str(d.googleReviewUrl, 500) && d.googleReviewUrl.matches('^https://[^/@]+/.*')))
         && d.active is bool;
     }
 
     match /businesses/{slug} {
-      // Público: la página del QR necesita leer nombre, logo, colores y enlace.
-      allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if validProfile(request.resource.data) && (
-        isAdmin() ||
-        // El dueño edita su identidad, pero no puede activarse/suspenderse ni marcarse como demo.
-        (isOwner(slug)
-          && request.resource.data.active == resource.data.active
-          && request.resource.data.get('isDemo', false) == resource.data.get('isDemo', false))
-      );
+      // Público: la pantalla del QR necesita nombre, logo, rubro, dirección y enlace.
+      allow get: if true;
+      allow list: if false;
+      allow create, delete: if false;
+      // El dueño edita sus datos, pero no puede activarse/suspenderse.
+      allow update: if isOwner(slug)
+        && validProfile(request.resource.data)
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.updatedAt == request.time;
 
-      // ── Opiniones privadas ─────────────────────────────────────────
+      // ── Opiniones ─────────────────────────────────────────────────
       match /feedback/{id} {
-        function validContact(c) {
-          return c.keys().hasOnly(['consent', 'name', 'phone', 'email'])
-            && c.consent == true
-            && str(c.name, 80) && str(c.phone, 30) && str(c.email, 160)
-            && (c.phone.size() > 0 || c.email.size() > 0);
-        }
         function validNew(d) {
-          return d.keys().hasOnly(['rating', 'comment', 'categories', 'contact', 'status', 'createdAt'])
+          return d.keys().hasOnly(['rating', 'comment', 'uid', 'status', 'createdAt'])
             && d.rating is int && d.rating >= 1 && d.rating <= 5
             && str(d.comment, 1000)
-            && d.categories is list && d.categories.size() <= 12
-            && d.status == 'NEW'
-            && d.createdAt == request.time
-            && (!('contact' in d) || validContact(d.contact));
+            && (d.rating < 5 || d.comment == '')
+            && d.uid == request.auth.uid
+            && d.status == 'pending'
+            && d.createdAt == request.time;
         }
-        // Cualquiera (sin cuenta) puede dejar una opinión en un comercio activo.
-        allow create: if businessActive(slug) && validNew(request.resource.data);
-        allow read: if canManage(slug);
-        // El comercio solo cambia el seguimiento y su nota interna; nunca la puntuación ni el comentario.
-        allow update: if canManage(slug)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusUpdatedAt', 'note'])
-          && request.resource.data.status in ['NEW', 'IN_PROGRESS', 'REVIEWED']
-          && (!('note' in request.resource.data) || str(request.resource.data.note, 2000));
-        allow delete: if isAdmin();
-      }
+        // Cualquier visitante (sesión anónima, sin cuenta) puede dejar UNA opinión
+        // cada 30 s, y solo junto con su registro de límite (escritura en lote).
+        allow create: if signedIn()
+          && businessActive(slug)
+          && id.matches('^[a-f0-9]{24}$')
+          && validNew(request.resource.data)
+          && getAfter(throttlePath(request.auth.uid)).data.at == request.time
+          && getAfter(throttlePath(request.auth.uid)).data.slug == slug
+          && getAfter(throttlePath(request.auth.uid)).data.fid == id;
 
-      // ── Clics en "Google Maps" (de a uno) ──────────────────────────
-      match /clicks/{day} {
-        allow read: if canManage(slug);
-        allow create: if businessActive(slug) && day.matches('^\\d{4}-\\d{2}-\\d{2}$')
-          && request.resource.data.keys().hasOnly(['count']) && request.resource.data.count == 1;
-        allow update: if businessActive(slug)
-          && request.resource.data.keys().hasOnly(['count'])
-          && request.resource.data.count == resource.data.count + 1;
-        allow delete: if isAdmin();
+        // El negocio la lee; el visitante solo puede comprobar si SU envío llegó
+        // (para reintentar sin duplicar).
+        allow get: if isOwner(slug) || (signedIn() && resource.data.uid == request.auth.uid);
+        allow list: if isOwner(slug);
+
+        // El negocio solo cambia el seguimiento y su nota interna; nunca la puntuación ni el comentario.
+        allow update: if isOwner(slug)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'resolvedAt', 'noteUpdatedAt'])
+          && request.resource.data.status in ['pending', 'resolved']
+          && (!('note' in request.resource.data) || str(request.resource.data.note, 2000));
+        allow delete: if false;
       }
+    }
+
+    // ── Límite de envíos por visitante ─────────────────────────────────
+    match /throttle/{uid} {
+      function validThrottle() {
+        let d = request.resource.data;
+        return signedIn() && request.auth.uid == uid
+          && d.keys().hasOnly(['at', 'slug', 'fid'])
+          && d.at == request.time
+          && d.slug is string && d.fid is string
+          && existsAfter(feedbackPath(d.slug, d.fid))
+          && !exists(feedbackPath(d.slug, d.fid));
+      }
+      allow create: if validThrottle();
+      allow update: if validThrottle() && request.time > resource.data.at + minGap();
+      allow read, delete: if false;
     }
   }
 }

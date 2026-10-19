@@ -1,167 +1,215 @@
+// Reglas de Firestore contra el emulador: npm run test:rules
 import { readFileSync } from "node:fs";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
-import {
-  assertFails,
-  assertSucceeds,
-  initializeTestEnvironment,
-  type RulesTestEnvironment,
-} from "@firebase/rules-unit-testing";
-import { addDoc, collection, doc, getDoc, getDocs, increment, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { collection, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, writeBatch, type Firestore } from "firebase/firestore";
+import { applyFilter, computeStats, sentimentOf } from "../../web/src/lib/feedback.js";
+import { checkGoogleUrl } from "../../web/src/lib/google-url.js";
 
 let env: RulesTestEnvironment;
 
 const profile = (name: string, extra: Record<string, unknown> = {}) => ({
   name,
-  brandColor: "#0f766e",
+  industry: "Cafetería",
+  address: "",
   logo: null,
-  welcomeMessage: "¿Cómo fue tu experiencia?",
-  thankYouMessage: "¡Gracias!",
   googleReviewUrl: "https://g.page/r/test/review",
-  categories: ["Atención", "Precio"],
   active: true,
-  isDemo: false,
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
   ...extra,
 });
 
-const opinion = (extra: Record<string, unknown> = {}) => ({
-  rating: 2,
-  comment: "Tardaron mucho",
-  categories: ["Atención"],
-  status: "NEW",
-  createdAt: serverTimestamp(),
-  ...extra,
-});
+let n = 0;
+const fid = () => (++n).toString(16).padStart(24, "0");
+
+/** Envío público: opinión + registro de límite en un mismo lote (como la web). */
+function submit(db: Firestore, uid: string, slug: string, data: Record<string, unknown> = {}, id = fid()) {
+  const b = writeBatch(db);
+  b.set(doc(db, `businesses/${slug}/feedback/${id}`), { rating: 2, comment: "Tardaron mucho", uid, status: "pending", createdAt: serverTimestamp(), ...data });
+  b.set(doc(db, `throttle/${uid}`), { at: serverTimestamp(), slug, fid: id });
+  return b.commit();
+}
+
+const visitor = (uid = "visitante") => env.authenticatedContext(uid, { firebase: { sign_in_provider: "anonymous" } }).firestore();
+const owner = (uid: string) => env.authenticatedContext(uid, { email: `${uid}@test.com`, firebase: { sign_in_provider: "password" } }).firestore();
+const anon = () => env.unauthenticatedContext().firestore();
 
 beforeAll(async () => {
-  env = await initializeTestEnvironment({
-    projectId: "demo-reputacion",
-    firestore: { rules: readFileSync("firestore.rules", "utf8") },
-  });
+  env = await initializeTestEnvironment({ projectId: "demo-pagina-qr", firestore: { rules: readFileSync("firestore.rules", "utf8") } });
 });
-
 afterAll(async () => env?.cleanup());
 
 beforeEach(async () => {
   await env.clearFirestore();
-  // Datos iniciales sin reglas: dos comercios, un dueño por comercio y un admin.
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, "admins/admin1"), { email: "admin@test.com" });
     await setDoc(doc(db, "businesses/cafe-a"), profile("Café A"));
     await setDoc(doc(db, "businesses/cafe-b"), profile("Café B"));
     await setDoc(doc(db, "businesses/cerrado"), profile("Cerrado", { active: false }));
-    await setDoc(doc(db, "access/cafe-a"), { ownerUids: ["duenoA"], ownerEmails: ["a@test.com"] });
-    await setDoc(doc(db, "access/cafe-b"), { ownerUids: ["duenoB"], ownerEmails: ["b@test.com"] });
-    await setDoc(doc(db, "businesses/cafe-b/feedback/fb-b"), { rating: 1, comment: "secreto de B", categories: [], status: "NEW", createdAt: new Date() });
-    await setDoc(doc(db, "businesses/cafe-a/feedback/fb-a"), { rating: 3, comment: "de A", categories: [], status: "NEW", createdAt: new Date() });
+    await setDoc(doc(db, "access/cafe-a"), { ownerUids: ["duenoA"] });
+    await setDoc(doc(db, "access/cafe-b"), { ownerUids: ["duenoB"] });
+    await setDoc(doc(db, "businesses/cafe-a/feedback/fa"), { rating: 3, comment: "de A", uid: "x", status: "pending", createdAt: new Date() });
+    await setDoc(doc(db, "businesses/cafe-b/feedback/fb"), { rating: 1, comment: "secreto de B", uid: "y", status: "pending", createdAt: new Date() });
   });
 });
 
-const anon = () => env.unauthenticatedContext().firestore();
-const as = (uid: string) => env.authenticatedContext(uid).firestore();
-
-describe("Página pública (sin cuenta)", () => {
-  it("puede leer el perfil del comercio para mostrar la página del QR", async () => {
+describe("pantalla pública", () => {
+  it("cualquiera lee el perfil de un negocio, pero no puede listar negocios", async () => {
     await assertSucceeds(getDoc(doc(anon(), "businesses/cafe-a")));
+    await assertFails(getDocs(collection(anon(), "businesses")));
   });
 
-  it("puede dejar una opinión válida, con o sin contacto", async () => {
-    await assertSucceeds(addDoc(collection(anon(), "businesses/cafe-a/feedback"), opinion()));
-    await assertSucceeds(
-      addDoc(collection(anon(), "businesses/cafe-a/feedback"), opinion({ contact: { consent: true, name: "Ana", phone: "1155550101", email: "" } })),
-    );
-    await assertSucceeds(addDoc(collection(anon(), "businesses/cafe-a/feedback"), opinion({ rating: 5, comment: "", categories: [] })));
+  it("un visitante (sesión anónima) deja una opinión de 1 a 5 estrellas", async () => {
+    for (const rating of [1, 2, 3, 4]) await assertSucceeds(submit(visitor(`v${rating}`), `v${rating}`, "cafe-a", { rating }));
+    await assertSucceeds(submit(visitor("v5"), "v5", "cafe-a", { rating: 5, comment: "" }));
   });
 
-  it.each([0, 6, 2.5, "5"])("rechaza la puntuación %s", async (rating) => {
-    await assertFails(addDoc(collection(anon(), "businesses/cafe-a/feedback"), opinion({ rating })));
+  it("sin sesión no se puede opinar", async () => {
+    await assertFails(submit(anon(), "nadie", "cafe-a"));
   });
 
-  it("rechaza campos extra, estados manipulados, fechas falsas y comentarios largos", async () => {
-    const col = collection(anon(), "businesses/cafe-a/feedback");
-    await assertFails(addDoc(col, opinion({ hackeado: true })));
-    await assertFails(addDoc(col, opinion({ status: "REVIEWED" })));
-    await assertFails(addDoc(col, opinion({ createdAt: new Date("2020-01-01") })));
-    await assertFails(addDoc(col, opinion({ comment: "x".repeat(1001) })));
+  it("rechaza puntuaciones inválidas, campos extra, estados falsos y otro uid", async () => {
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { rating: 0 }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { rating: 6 }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { rating: 4.5 }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { rating: "5" }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { status: "resolved" }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { note: "nota inyectada" }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { comment: "x".repeat(1001) }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { uid: "otro" }));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { createdAt: new Date("2020-01-01") }));
   });
 
-  it("rechaza contacto sin consentimiento o sin teléfono ni email", async () => {
-    const col = collection(anon(), "businesses/cafe-a/feedback");
-    await assertFails(addDoc(col, opinion({ contact: { consent: false, name: "", phone: "1155550101", email: "" } })));
-    await assertFails(addDoc(col, opinion({ contact: { consent: true, name: "Ana", phone: "", email: "" } })));
+  it("no se puede opinar sin el registro de límite ni en un negocio suspendido o inexistente", async () => {
+    await assertFails(setDoc(doc(visitor(), `businesses/cafe-a/feedback/${fid()}`), { rating: 2, comment: "", uid: "visitante", status: "pending", createdAt: serverTimestamp() }));
+    await assertFails(submit(visitor(), "visitante", "cerrado"));
+    await assertFails(submit(visitor(), "visitante", "no-existe"));
   });
 
-  it("no puede opinar en un comercio suspendido ni inexistente", async () => {
-    await assertFails(addDoc(collection(anon(), "businesses/cerrado/feedback"), opinion()));
-    await assertFails(addDoc(collection(anon(), "businesses/no-existe/feedback"), opinion()));
+  it("límite: un segundo envío inmediato del mismo visitante se rechaza", async () => {
+    await assertSucceeds(submit(visitor(), "visitante", "cafe-a"));
+    await assertFails(submit(visitor(), "visitante", "cafe-a"));
+    await assertFails(submit(visitor(), "visitante", "cafe-b"));
+    // Otro visitante no se ve afectado.
+    await assertSucceeds(submit(visitor("otro"), "otro", "cafe-a"));
   });
 
-  it("no puede leer opiniones ni quién administra cada comercio", async () => {
-    await assertFails(getDoc(doc(anon(), "businesses/cafe-a/feedback/fb-a")));
-    await assertFails(getDocs(collection(anon(), "businesses/cafe-a/feedback")));
-    await assertFails(getDoc(doc(anon(), "access/cafe-a")));
+  it("reintento con el mismo id: no se duplica y el visitante puede comprobar que llegó", async () => {
+    const id = fid();
+    await assertSucceeds(submit(visitor(), "visitante", "cafe-a", {}, id));
+    await assertFails(submit(visitor(), "visitante", "cafe-a", {}, id));
+    await assertSucceeds(getDoc(doc(visitor(), `businesses/cafe-a/feedback/${id}`)));
+    // Pero no puede leer opiniones ajenas ni listar.
+    await assertFails(getDoc(doc(visitor(), "businesses/cafe-a/feedback/fa")));
+    await assertFails(getDocs(collection(visitor(), "businesses/cafe-a/feedback")));
   });
 
-  it("solo puede sumar clics de a uno", async () => {
-    const day = doc(anon(), "businesses/cafe-a/clicks/2026-10-13");
-    await assertSucceeds(setDoc(day, { count: 1 }));
-    await assertSucceeds(updateDoc(day, { count: increment(1) }));
-    await assertFails(updateDoc(day, { count: increment(5) }));
-    await assertFails(getDoc(day));
-  });
-});
-
-describe("Aislamiento entre comercios", () => {
-  it("el dueño de A lee sus opiniones pero no las de B", async () => {
-    const db = as("duenoA");
-    await assertSucceeds(getDocs(collection(db, "businesses/cafe-a/feedback")));
-    await assertFails(getDocs(collection(db, "businesses/cafe-b/feedback")));
-    await assertFails(getDoc(doc(db, "businesses/cafe-b/feedback/fb-b")));
-    await assertFails(getDoc(doc(db, "access/cafe-b")));
+  it("5 estrellas no lleva comentario", async () => {
+    await assertFails(submit(visitor(), "visitante", "cafe-a", { rating: 5, comment: "hola" }));
   });
 
-  it("el dueño cambia el seguimiento y la nota, pero no la puntuación ni opiniones ajenas", async () => {
-    const db = as("duenoA");
-    await assertSucceeds(updateDoc(doc(db, "businesses/cafe-a/feedback/fb-a"), { status: "IN_PROGRESS", statusUpdatedAt: serverTimestamp(), note: "Lo llamamos" }));
-    await assertFails(updateDoc(doc(db, "businesses/cafe-a/feedback/fb-a"), { status: "INVENTADO" }));
-    await assertFails(updateDoc(doc(db, "businesses/cafe-a/feedback/fb-a"), { rating: 5 }));
-    await assertFails(updateDoc(doc(db, "businesses/cafe-b/feedback/fb-b"), { status: "REVIEWED" }));
-  });
-
-  it("el dueño edita su identidad pero no puede reactivarse, ni editar otro comercio, ni crear comercios", async () => {
-    const db = as("duenoA");
-    await assertSucceeds(updateDoc(doc(db, "businesses/cafe-a"), { welcomeMessage: "¿Qué tal todo?" }));
-    await assertFails(updateDoc(doc(db, "businesses/cafe-a"), { active: false }));
-    await assertFails(updateDoc(doc(db, "businesses/cafe-b"), { name: "Hackeado" }));
-    await assertFails(setDoc(doc(db, "businesses/nuevo"), profile("Nuevo")));
-    await assertFails(setDoc(doc(db, "access/cafe-a"), { ownerUids: ["duenoA", "intruso"], ownerEmails: [] }));
-  });
-
-  it("un usuario registrado sin comercio asignado no ve nada privado", async () => {
-    const db = as("intruso");
-    await assertFails(getDocs(collection(db, "businesses/cafe-a/feedback")));
-    await assertFails(getDoc(doc(db, "access/cafe-a")));
-    await assertFails(getDoc(doc(db, "admins/admin1")));
-  });
-
-  it("el dueño encuentra solo sus comercios con una consulta", async () => {
-    const snap = await assertSucceeds(getDocs(query(collection(as("duenoA"), "access"), where("ownerUids", "array-contains", "duenoA"))));
-    if (snap.docs.map((d) => d.id).join() !== "cafe-a") throw new Error("debía devolver solo cafe-a");
-    await assertFails(getDocs(collection(as("duenoA"), "access")));
+  it("el visitante no puede tocar opiniones ni el perfil", async () => {
+    await assertFails(updateDoc(doc(visitor(), "businesses/cafe-a/feedback/fa"), { status: "resolved" }));
+    await assertFails(updateDoc(doc(visitor(), "businesses/cafe-a"), { googleReviewUrl: "https://g.page/r/otro/review", updatedAt: serverTimestamp() }));
   });
 });
 
-describe("Superadministrador", () => {
-  it("crea comercios, asigna dueños y lee todo", async () => {
-    const db = as("admin1");
-    await assertSucceeds(setDoc(doc(db, "businesses/nuevo"), profile("Nuevo")));
-    await assertSucceeds(setDoc(doc(db, "access/nuevo"), { ownerUids: ["x"], ownerEmails: ["x@test.com"] }));
-    await assertSucceeds(getDocs(collection(db, "businesses/cafe-b/feedback")));
-    await assertSucceeds(updateDoc(doc(db, "businesses/cafe-b"), { active: false }));
-    await assertSucceeds(getDocs(collection(db, "access")));
+describe("aislamiento entre negocios", () => {
+  it("cada dueño lee solo las opiniones de su negocio", async () => {
+    await assertSucceeds(getDocs(collection(owner("duenoA"), "businesses/cafe-a/feedback")));
+    await assertFails(getDocs(collection(owner("duenoA"), "businesses/cafe-b/feedback")));
+    await assertFails(getDoc(doc(owner("duenoA"), "businesses/cafe-b/feedback/fb")));
+    await assertFails(getDoc(doc(owner("duenoA"), "access/cafe-b")));
   });
 
-  it("nadie puede convertirse en admin desde la app", async () => {
-    await assertFails(setDoc(doc(as("intruso"), "admins/intruso"), { email: "yo@test.com" }));
+  it("un dueño no modifica opiniones ni el perfil de otro negocio", async () => {
+    await assertFails(updateDoc(doc(owner("duenoA"), "businesses/cafe-b/feedback/fb"), { status: "resolved" }));
+    await assertFails(updateDoc(doc(owner("duenoA"), "businesses/cafe-b"), { name: "Hackeado", updatedAt: serverTimestamp() }));
+  });
+
+  it("nadie se da acceso a sí mismo ni crea negocios desde la web", async () => {
+    await assertFails(setDoc(doc(owner("duenoA"), "access/cafe-b"), { ownerUids: ["duenoA"] }));
+    await assertFails(setDoc(doc(owner("duenoA"), "businesses/nuevo"), profile("Nuevo")));
+  });
+
+  it("una sesión anónima con el uid de un dueño no tiene acceso", async () => {
+    const fake = env.authenticatedContext("duenoA", { firebase: { sign_in_provider: "anonymous" } }).firestore();
+    await assertFails(getDocs(collection(fake, "businesses/cafe-a/feedback")));
+  });
+});
+
+describe("gestión del dueño", () => {
+  const ref = (db: Firestore) => doc(db, "businesses/cafe-a/feedback/fa");
+
+  it("marca como resuelta, vuelve a pendiente y guarda la nota interna", async () => {
+    await assertSucceeds(updateDoc(ref(owner("duenoA")), { status: "resolved", resolvedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref(owner("duenoA")), { status: "pending" }));
+    await assertSucceeds(updateDoc(ref(owner("duenoA")), { note: "Hablé con el cliente", noteUpdatedAt: serverTimestamp() }));
+  });
+
+  it("no puede cambiar la puntuación ni el comentario, ni borrar", async () => {
+    await assertFails(updateDoc(ref(owner("duenoA")), { rating: 5 }));
+    await assertFails(updateDoc(ref(owner("duenoA")), { comment: "editado" }));
+    await assertFails(updateDoc(ref(owner("duenoA")), { status: "otro" }));
+    await assertFails(updateDoc(ref(owner("duenoA")), { note: "x".repeat(2001) }));
+    const { deleteDoc } = await import("firebase/firestore");
+    await assertFails(deleteDoc(ref(owner("duenoA"))));
+  });
+
+  it("edita su perfil con validación, pero no puede reactivarse", async () => {
+    const db = owner("duenoA");
+    const b = doc(db, "businesses/cafe-a");
+    await assertSucceeds(updateDoc(b, { name: "Café A+", address: "Calle 1", googleReviewUrl: "https://maps.app.goo.gl/abc", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(b, { name: "X", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(b, { googleReviewUrl: "http://g.page/r/x", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(b, { logo: "data:image/svg+xml;base64,PHN2Zz4=", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(b, { active: false, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(b, { extra: 1, updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(b, { logo: "data:image/webp;base64,UklGRg==", updatedAt: serverTimestamp() }));
+  });
+});
+
+describe("lógica compartida", () => {
+  it("clasificación coherente: 1–2 negativas, 3 intermedia, 4–5 positivas", () => {
+    expect([1, 2, 3, 4, 5].map(sentimentOf)).toEqual(["negative", "negative", "neutral", "positive", "positive"]);
+  });
+
+  it("filtros y estadísticas", () => {
+    const now = new Date("2026-10-19T12:00:00").getTime();
+    const day = 86400000;
+    const fb = [
+      { rating: 5, status: "pending", createdAt: new Date(now - 1 * day) },
+      { rating: 4, status: "resolved", createdAt: new Date(now - 2 * day) },
+      { rating: 3, status: "pending", createdAt: new Date(now - 3 * day) },
+      { rating: 1, status: "pending", createdAt: new Date(now - 10 * day) },
+      { rating: 2, status: "resolved", createdAt: new Date(now - 40 * day) },
+    ];
+    expect(applyFilter(fb, "positivas")).toHaveLength(2);
+    expect(applyFilter(fb, "negativas")).toHaveLength(2);
+    expect(applyFilter(fb, "pendientes").map((f) => f.rating)).toEqual([3, 1]);
+    expect(applyFilter(fb, "resueltas").map((f) => f.rating)).toEqual([4, 2]);
+    const w = computeStats(fb, 7, now);
+    expect(w.total).toBe(3);
+    expect(w.average).toBeCloseTo(4);
+    expect(w.pending).toBe(2);
+    expect(w.series).toHaveLength(7);
+    expect(w.series.reduce((a, b) => a + b.total, 0)).toBe(3);
+    const all = computeStats(fb, null, now);
+    expect(all.total).toBe(5);
+    expect(all.distribution).toEqual([1, 1, 1, 1, 1]);
+    expect(all.negative).toBe(2);
+    expect(all.series.reduce((a, b) => a + b.total, 0)).toBe(5);
+    expect(computeStats([], 30, now).average).toBeNull();
+  });
+
+  it("valida enlaces de Google", () => {
+    expect(checkGoogleUrl("https://g.page/r/CabcDEF/review").ok).toBe(true);
+    expect(checkGoogleUrl("https://maps.app.goo.gl/xyz").ok).toBe(true);
+    expect(checkGoogleUrl("ChIJN1t_tDeuEmsRUsoyG83frY4").ok).toBe(true);
+    expect(checkGoogleUrl("http://g.page/r/x").ok).toBe(false);
+    expect(checkGoogleUrl("https://evil.com/maps").ok).toBe(false);
+    expect(checkGoogleUrl("https://www.google.com/mail").ok).toBe(false);
+    expect(checkGoogleUrl("").ok).toBe(false);
   });
 });
