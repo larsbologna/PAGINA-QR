@@ -12,8 +12,8 @@
  * (no simula datos).
  */
 window.FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: "",
+  apiKey: "AIzaSyAmrTYTtukJNcPusGgHeiceYJFtN_SHo5k",
+  authDomain: "pagina-qr-b0703.firebaseapp.com",
+  projectId: "pagina-qr-b0703",
+  appId: "1:1012710147351:web:663acefbd7bc5dfee56352",
 };
