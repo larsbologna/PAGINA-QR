@@ -1,7 +1,8 @@
-name: Publicar web (GitHub Pages)
+name: Redirección (GitHub Pages)
 
-# Publica la web estática (carpeta web/) en GitHub Pages cada vez que cambia main.
-# Requisito (una sola vez): Settings → Pages → Source: "GitHub Actions".
+# La web real se publica en Firebase Hosting (npm run publicar). La dirección de
+# GitHub Pages queda solo como redirección, para que los QR impresos con ella
+# sigan funcionando: …github.io/PAGINA-QR/?c=negocio → pagina-qr-b0703.web.app/?c=negocio
 on:
   push:
     branches: [main]
@@ -21,15 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --ignore-scripts
-      - run: node web/build.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web/dist
+          path: web/redirect
   deploy:
     needs: build
     runs-on: ubuntu-latest
