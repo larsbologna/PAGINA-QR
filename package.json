@@ -8,7 +8,8 @@
     "serve": "node web/build.mjs && node web/serve.mjs",
     "negocio:crear": "node tools/crear-negocio.mjs",
     "test": "node web/build.mjs && OUT_DIR=web/dist-emu WEB_CONFIG=tests/web-e2e/emulator-config.js node web/build.mjs && firebase emulators:exec --only firestore,auth --project demo-pagina-qr \"vitest run -c vitest.web.config.ts && playwright test -c playwright.web.config.ts\"",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-pagina-qr \"vitest run -c vitest.web.config.ts\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-pagina-qr \"vitest run -c vitest.web.config.ts\"",
+    "publicar": "node web/build.mjs && firebase deploy --only hosting,firestore:rules"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

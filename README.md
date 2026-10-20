@@ -18,7 +18,7 @@ El nombre y el logo están centralizados en `web/src/brand.js`; los colores, en 
 
 | Parte | Qué es |
 |---|---|
-| `web/` | Web estática (JavaScript sin framework, empaquetada con esbuild). Se publica gratis en GitHub Pages. |
+| `web/` | Web estática (JavaScript sin framework, empaquetada con esbuild). Se publica gratis en Firebase Hosting (`https://pagina-qr-b0703.web.app`). |
 | Firebase Authentication | Dueños con email y contraseña. Visitantes con sesión **anónima** (sin datos personales), usada solo para limitar envíos. |
 | Firestore | Datos de negocios y opiniones. |
 | `firestore.rules` | La seguridad real: validación de datos en el servidor, aislamiento entre negocios, límite de 1 opinión cada 30 s por visitante, notas privadas, puntuación inalterable. |
@@ -40,9 +40,15 @@ Modelo: `admins/{uid}` (superadministradores), `businesses/{slug}` (perfil públ
 
 Sin el paso 5, la web muestra un aviso de configuración pendiente: no simula datos.
 
-### 2. Publicar en GitHub Pages
+### 2. Publicar en Firebase Hosting (gratis, permite uso comercial)
 
-**Settings → Pages → Source: GitHub Actions.** Cada cambio en `main` se publica solo (`.github/workflows/pages.yml`) en `https://<usuario>.github.io/<repo>/`.
+1. En la consola de Firebase: **Compilación → Hosting → Comenzar** (solo hace falta avanzar el asistente; no ejecutes los comandos que muestra).
+2. En la carpeta del proyecto, una sola vez: `npx firebase login` (abre el navegador para entrar con tu cuenta de Google).
+3. Para publicar (la primera vez y después de cada cambio): `npm run publicar`. Publica la web y también las reglas de `firestore.rules`.
+
+La web queda en `https://pagina-qr-b0703.web.app`. Los QR deben apuntar a `https://pagina-qr-b0703.web.app/?c=<negocio>`.
+
+La dirección vieja de GitHub Pages (`…github.io/PAGINA-QR/`) queda como redirección automática a la nueva, así que los QR impresos con ella siguen funcionando. No la desactives en GitHub.
 
 ### 3. Crear tu cuenta de superadministrador (una sola vez)
 
