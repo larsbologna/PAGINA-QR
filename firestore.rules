@@ -3,13 +3,14 @@ rules_version = '2';
 // ReseñaQR — reglas de seguridad de Firestore.
 //
 // Modelo:
-//   access/{slug}                     { ownerUids: [] }  quién administra cada negocio
+//   admins/{uid}                      superadministradores (se crean con tools/crear-negocio.mjs --superadmin)
+//   access/{slug}                     { ownerUids: [], ownerEmails: [] }  quién administra cada negocio
 //   businesses/{slug}                 perfil público (nombre, logo, rubro, dirección, enlace de Google)
 //   businesses/{slug}/feedback/{id}   opiniones (las crea el público; las lee y gestiona solo el negocio)
 //   throttle/{uid}                    último envío de cada visitante (límite contra envíos abusivos)
 //
-// Los negocios y sus dueños se crean con la herramienta tools/crear-negocio.mjs
-// (Admin SDK, que no pasa por estas reglas). Nadie puede crearlos desde la web.
+// Los negocios los crea, suspende o elimina el superadministrador desde #/admin
+// (o con tools/crear-negocio.mjs). Los dueños solo gestionan su propio negocio.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -24,6 +25,12 @@ service cloud.firestore {
         && exists(accessPath(slug))
         && request.auth.uid in get(accessPath(slug)).data.ownerUids;
     }
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function canManage(slug) { return isOwner(slug) || isAdmin(); }
     function businessActive(slug) {
       return exists(bizPath(slug)) && get(bizPath(slug)).data.active == true;
     }
@@ -33,11 +40,20 @@ service cloud.firestore {
     function minGap() { return duration.value(30, 's'); }
 
     // ── Quién administra cada negocio ──────────────────────────────────
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false; // solo con la herramienta o la consola de Firebase
+    }
+
     match /access/{slug} {
-      allow get: if isOwner(slug);
+      allow get: if canManage(slug);
       // Para que un dueño encuentre "sus" negocios (consulta array-contains).
-      allow list: if signedIn() && request.auth.uid in resource.data.ownerUids;
-      allow write: if false;
+      allow list: if isAdmin() || (signedIn() && request.auth.uid in resource.data.ownerUids);
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['ownerUids', 'ownerEmails'])
+        && request.resource.data.ownerUids is list && request.resource.data.ownerUids.size() <= 10
+        && request.resource.data.get('ownerEmails', []) is list;
+      allow delete: if isAdmin();
     }
 
     // ── Perfil público del negocio ─────────────────────────────────────
@@ -54,12 +70,17 @@ service cloud.firestore {
     match /businesses/{slug} {
       // Público: la pantalla del QR necesita nombre, logo, rubro, dirección y enlace.
       allow get: if true;
-      allow list: if false;
-      allow create, delete: if false;
-      // El dueño edita sus datos, pero no puede activarse/suspenderse.
-      allow update: if isOwner(slug)
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && slug.matches('^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$')
         && validProfile(request.resource.data)
-        && request.resource.data.active == resource.data.active
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+      // El dueño edita sus datos, pero no puede activarse/suspenderse; el superadministrador sí.
+      allow update: if canManage(slug)
+        && validProfile(request.resource.data)
+        && (isAdmin() || request.resource.data.active == resource.data.active)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.updatedAt == request.time;
 
@@ -86,15 +107,16 @@ service cloud.firestore {
 
         // El negocio la lee; el visitante solo puede comprobar si SU envío llegó
         // (para reintentar sin duplicar).
-        allow get: if isOwner(slug) || (signedIn() && resource.data.uid == request.auth.uid);
-        allow list: if isOwner(slug);
+        allow get: if canManage(slug) || (signedIn() && resource.data.uid == request.auth.uid);
+        allow list: if canManage(slug);
 
         // El negocio solo cambia el seguimiento y su nota interna; nunca la puntuación ni el comentario.
-        allow update: if isOwner(slug)
+        allow update: if canManage(slug)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'resolvedAt', 'noteUpdatedAt'])
           && request.resource.data.status in ['pending', 'resolved']
           && (!('note' in request.resource.data) || str(request.resource.data.note, 2000));
-        allow delete: if false;
+        // Solo el superadministrador borra (por ejemplo, las opiniones de prueba).
+        allow delete: if isAdmin();
       }
     }
 

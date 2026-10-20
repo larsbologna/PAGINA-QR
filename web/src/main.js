@@ -2,11 +2,13 @@
 //   ?c=<negocio>              pantalla pública del QR
 //   #/login                   ingreso al panel
 //   #/panel/<negocio>/...     panel privado
+//   #/admin                   superadministrador
 import { createStore } from "./store.js";
 import { renderPublic } from "./views/public.js";
 import { renderLogin } from "./views/login.js";
 import { closePanel, renderPanel } from "./views/panel.js";
 import { renderHome } from "./views/home.js";
+import { renderAdmin } from "./views/admin.js";
 import { SLUG_RE } from "./lib/feedback.js";
 import { BRAND } from "./brand.js";
 import { h, mount } from "./ui.js";
@@ -30,6 +32,10 @@ if (!cfg.apiKey) {
       const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
       const owner = store.owner();
       if (parts[0] === "login") return owner ? go("#/panel") : renderLogin(root, store, go);
+      if (parts[0] === "admin") {
+        closePanel();
+        return owner ? await renderAdmin(root, store, go) : go("#/login");
+      }
       if (parts[0] === "panel") return owner ? await renderPanel(root, store, parts.slice(1), new URLSearchParams(qs), go) : go("#/login");
       closePanel();
       return renderHome(root);

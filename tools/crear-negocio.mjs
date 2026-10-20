@@ -7,6 +7,9 @@
 //     [--password "una-clave-larga"] [--rubro Cafetería] [--direccion "Av. Siempreviva 742"] [--google https://g.page/r/…/review]
 //
 // Opciones extra: --suspender / --activar (pausa o reanuda la página pública).
+//
+// Superadministrador (una sola vez, para entrar a #/admin y gestionar todo desde la web):
+//   node tools/crear-negocio.mjs --clave cuenta-servicio.json --superadmin --email vos@ejemplo.com [--password "…"]
 import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
@@ -29,6 +32,7 @@ const { values: a } = parseArgs({
     google: { type: "string" },
     suspender: { type: "boolean", default: false },
     activar: { type: "boolean", default: false },
+    superadmin: { type: "boolean", default: false },
   },
 });
 
@@ -43,6 +47,27 @@ const key = a.clave ? JSON.parse(readFileSync(a.clave, "utf8")) : null;
 initializeApp(key ? { credential: cert(key), projectId: key.project_id } : { projectId: a.proyecto ?? process.env.GCLOUD_PROJECT ?? "demo-pagina-qr" });
 const db = getFirestore();
 const auth = getAuth();
+
+async function userFor(email, wanted) {
+  try {
+    return { user: await auth.getUserByEmail(email), password: null };
+  } catch (e) {
+    if (e.code !== "auth/user-not-found") throw e;
+    const password = wanted ?? randomBytes(12).toString("base64url");
+    return { user: await auth.createUser({ email, password }), password };
+  }
+}
+
+if (a.superadmin) {
+  const email = String(a.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("--email inválido.");
+  if (a.password && a.password.length < 10) fail("--password debe tener al menos 10 caracteres.");
+  const { user, password } = await userFor(email, a.password);
+  await db.doc(`admins/${user.uid}`).set({ email, createdAt: FieldValue.serverTimestamp() });
+  console.log(`✔ ${email} ahora es superadministrador.${password ? `  Contraseña: ${password}  (se muestra una sola vez)` : " (su contraseña no cambia)"}`);
+  console.log("  Entrá a <URL de la web>#/login y vas a ver el panel de superadministrador.");
+  process.exit(0);
+}
 
 const slug = String(a.slug ?? "").trim().toLowerCase();
 if (!SLUG_RE.test(slug)) fail("--slug inválido: usá minúsculas, números y guiones (ej.: cafe-la-esquina).");
@@ -67,16 +92,8 @@ if (a.google) {
 }
 if (a.password && a.password.length < 10) fail("--password debe tener al menos 10 caracteres.");
 
-let user;
-let password = null;
-try {
-  user = await auth.getUserByEmail(email);
-  console.log(`• La cuenta ${email} ya existe: se vincula al negocio (su contraseña no cambia).`);
-} catch (e) {
-  if (e.code !== "auth/user-not-found") throw e;
-  password = a.password ?? randomBytes(12).toString("base64url");
-  user = await auth.createUser({ email, password, emailVerified: false });
-}
+const { user, password } = await userFor(email, a.password);
+if (!password) console.log(`• La cuenta ${email} ya existe: se vincula al negocio (su contraseña no cambia).`);
 
 const exists = (await ref.get()).exists;
 if (exists) {
@@ -84,7 +101,7 @@ if (exists) {
 } else {
   await ref.set({ name, industry: a.rubro.slice(0, 60), address: a.direccion.slice(0, 160), logo: null, googleReviewUrl: google, active: true, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
 }
-await db.doc(`access/${slug}`).set({ ownerUids: FieldValue.arrayUnion(user.uid) }, { merge: true });
+await db.doc(`access/${slug}`).set({ ownerUids: FieldValue.arrayUnion(user.uid), ownerEmails: FieldValue.arrayUnion(email) }, { merge: true });
 
 console.log(`✔ Negocio ${exists ? "actualizado" : "creado"}: ${name} (${slug})`);
 console.log(`  Dueño: ${email}${password ? `  ·  contraseña: ${password}  (se muestra una sola vez)` : ""}`);
