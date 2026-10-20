@@ -47,6 +47,7 @@ beforeEach(async () => {
     await setDoc(doc(db, "businesses/cafe-a"), profile("Café A"));
     await setDoc(doc(db, "businesses/cafe-b"), profile("Café B"));
     await setDoc(doc(db, "businesses/cerrado"), profile("Cerrado", { active: false }));
+    await setDoc(doc(db, "admins/super"), { email: "super@test.com" });
     await setDoc(doc(db, "access/cafe-a"), { ownerUids: ["duenoA"] });
     await setDoc(doc(db, "access/cafe-b"), { ownerUids: ["duenoB"] });
     await setDoc(doc(db, "businesses/cafe-a/feedback/fa"), { rating: 3, comment: "de A", uid: "x", status: "pending", createdAt: new Date() });
@@ -167,6 +168,48 @@ describe("gestión del dueño", () => {
     await assertFails(updateDoc(b, { active: false, updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(b, { extra: 1, updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(b, { logo: "data:image/webp;base64,UklGRg==", updatedAt: serverTimestamp() }));
+  });
+});
+
+describe("superadministrador", () => {
+  const admin = () => owner("super");
+
+  it("lista y gestiona todos los negocios", async () => {
+    await assertSucceeds(getDocs(collection(admin(), "businesses")));
+    await assertSucceeds(getDocs(collection(admin(), "access")));
+    await assertSucceeds(getDocs(collection(admin(), "businesses/cafe-b/feedback")));
+    await assertSucceeds(updateDoc(doc(admin(), "businesses/cafe-b"), { active: false, updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(admin(), "businesses/cafe-b/feedback/fb"), { status: "resolved" }));
+  });
+
+  it("crea negocios con datos válidos y da acceso al dueño", async () => {
+    const db = admin();
+    const p = profile("Nuevo", { createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await assertSucceeds(setDoc(doc(db, "businesses/nuevo"), p));
+    await assertFails(setDoc(doc(db, "businesses/Mal Slug"), p));
+    await assertFails(setDoc(doc(db, "businesses/otro"), { ...p, extra: 1 }));
+    await assertSucceeds(setDoc(doc(db, "access/nuevo"), { ownerUids: ["d1"], ownerEmails: ["d1@test.com"] }));
+    await assertFails(setDoc(doc(db, "access/nuevo2"), { ownerUids: ["d1"], hack: true }));
+  });
+
+  it("borra opiniones (limpieza de pruebas) y negocios", async () => {
+    const { deleteDoc } = await import("firebase/firestore");
+    await assertSucceeds(deleteDoc(doc(admin(), "businesses/cafe-a/feedback/fa")));
+    await assertSucceeds(deleteDoc(doc(admin(), "access/cafe-b")));
+    await assertSucceeds(deleteDoc(doc(admin(), "businesses/cafe-b")));
+  });
+
+  it("los dueños y los visitantes no tienen esos permisos", async () => {
+    const { deleteDoc } = await import("firebase/firestore");
+    await assertFails(getDocs(collection(owner("duenoA"), "businesses")));
+    await assertFails(deleteDoc(doc(owner("duenoA"), "businesses/cafe-a/feedback/fa")));
+    await assertFails(deleteDoc(doc(owner("duenoA"), "businesses/cafe-a")));
+    await assertFails(setDoc(doc(owner("duenoA"), "admins/duenoA"), { email: "x" }));
+    await assertFails(updateDoc(doc(owner("duenoA"), "businesses/cafe-a"), { active: false, updatedAt: serverTimestamp() }));
+    // Una sesión anónima con el uid del superadmin no sirve.
+    const fake = env.authenticatedContext("super", { firebase: { sign_in_provider: "anonymous" } }).firestore();
+    await assertFails(getDocs(collection(fake, "businesses")));
+    await assertFails(getDocs(collection(visitor(), "businesses")));
   });
 });
 

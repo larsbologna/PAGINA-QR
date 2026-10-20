@@ -309,6 +309,85 @@ test("dueño con varios negocios elige cuál abrir; panel en celular", async ({ 
   await ctx.close();
 });
 
+test("superadministrador: crea, limpia, suspende y elimina negocios", async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const out = crearNegocio(["--superadmin", "--email", "super@e2e.test", "--password", PASSWORD]);
+  expect(out).toContain("superadministrador");
+  await login(page, "super@e2e.test");
+  await expect(page.getByRole("heading", { name: /Negocios/ })).toBeVisible();
+  await expect(page.locator(".biz-card", { hasText: "Café de Prueba" })).toBeVisible();
+
+  // Alta desde el formulario.
+  await page.getByRole("button", { name: "Nuevo negocio" }).click();
+  await page.getByLabel("Nombre del negocio").fill("Estilo Sur Barber");
+  await expect(page.getByLabel("Identificador del QR")).toHaveValue("estilo-sur-barber");
+  await page.getByLabel("Rubro").fill("Barbería");
+  await page.getByLabel("Enlace a sus reseñas de Google").fill(GOOGLE);
+  await page.getByLabel("Email del dueño").fill("barber@e2e.test");
+  await page.getByLabel("Contraseña inicial").fill(PASSWORD);
+  await page.getByRole("button", { name: "Crear negocio" }).click();
+  await expect(page.getByText("«Estilo Sur Barber» creado")).toBeVisible();
+  await expect(page.locator(".credentials")).toContainText("barber@e2e.test");
+  await expect(page.locator(".credentials")).toContainText("?c=estilo-sur-barber");
+  const card = page.locator(".biz-card", { hasText: "Estilo Sur Barber" });
+  await expect(card).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/12-superadmin.png`, fullPage: true });
+
+  // Una opinión de prueba desde la pantalla pública.
+  const { ctx, page: pub } = await visitor(browser);
+  await pub.goto(`${BASE}?c=estilo-sur-barber`);
+  await pub.getByRole("radio", { name: /^2 estrellas/ }).click();
+  await pub.getByLabel(/Qué podríamos mejorar/).fill("opinión de prueba");
+  await pub.getByRole("button", { name: "Enviar opinión" }).click();
+  await expect(pub.getByRole("heading", { name: "¡Gracias! Recibimos tu opinión." })).toBeVisible();
+  expect(await feedback("estilo-sur-barber")).toHaveLength(1);
+
+  // El superadmin puede abrir el panel del negocio.
+  await page.reload();
+  await card.getByRole("link", { name: "Abrir panel" }).click();
+  await expect(page.getByText("opinión de prueba")).toBeVisible();
+  await page.getByRole("link", { name: "Superadmin" }).click();
+
+  // Borrar opiniones de prueba (pide escribir el identificador).
+  await card.getByRole("button", { name: "Borrar opiniones" }).click();
+  const dlg = page.getByRole("dialog");
+  await expect(dlg.getByRole("button", { name: "Borrar opiniones" })).toBeDisabled();
+  await dlg.getByLabel(/para confirmar/).fill("estilo-sur-barber");
+  await dlg.getByRole("button", { name: "Borrar opiniones" }).click();
+  await expect(page.getByText("1 opinión borrada")).toBeVisible();
+  expect(await feedback("estilo-sur-barber")).toHaveLength(0);
+  // El negocio, su enlace y su dueño siguen.
+  await expect(card).toBeVisible();
+
+  // Suspender: la pantalla pública deja de recibir opiniones.
+  await card.getByRole("button", { name: "Suspender" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Suspender" }).click();
+  await expect(card.getByText("Suspendido")).toBeVisible();
+  await pub.goto(`${BASE}?c=estilo-sur-barber`);
+  await expect(pub.getByText("no está disponible")).toBeVisible();
+  await card.getByRole("button", { name: "Activar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Activar" }).click();
+  await expect(card.getByText("Activo")).toBeVisible();
+  await ctx.close();
+
+  // El dueño nuevo entra y ve solo su negocio.
+  const owner = await browser.newContext({ locale: "es-AR" });
+  const op = await owner.newPage();
+  await login(op, "barber@e2e.test");
+  await expect(op.locator(".place-name")).toHaveText("Estilo Sur Barber");
+  await expect(op.getByRole("link", { name: "Superadmin" })).toHaveCount(0);
+  await op.goto(`${BASE}#/admin`);
+  await expect(op.getByRole("heading", { name: "Sin acceso" })).toBeVisible();
+  await owner.close();
+
+  // Eliminar.
+  await card.getByRole("button", { name: "Eliminar" }).click();
+  await page.getByRole("dialog").getByLabel(/para confirmar/).fill("estilo-sur-barber");
+  await page.getByRole("dialog").getByRole("button", { name: "Eliminar negocio" }).click();
+  await expect(page.getByText("Negocio eliminado")).toBeVisible();
+  await expect(card).toHaveCount(0);
+});
+
 test("estado vacío del panel", async ({ page }) => {
   crearNegocio(["--slug", "vacio", "--nombre", "Negocio Nuevo", "--email", "vacio@e2e.test", "--password", PASSWORD]);
   await login(page, "vacio@e2e.test");

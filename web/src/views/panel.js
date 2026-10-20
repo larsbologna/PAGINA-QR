@@ -108,12 +108,17 @@ export async function renderPanel(root, store, parts, params, go) {
 
   const render = { "": renderHome, opiniones: renderReviews, configuracion: renderSettings }[current];
   ctx.view = render(content, ctx, sub);
+  // El superadministrador puede volver a la lista de negocios.
+  store.isAdmin().then((admin) => {
+    if (admin) root.querySelector(".panel-bar .brand-logo")?.after(h("a", { class: "btn btn-ghost small on-art admin-back", href: "#/admin" }, icon("back", 16), h("span", {}, "Superadmin")));
+  });
   document.title = `${SECTIONS.find((s) => s.id === current).label} · ${ctx.business.name} · ${BRAND.name}`;
 }
 
 async function chooseBusiness(root, store, go) {
   closePanel();
   mount(root, h("div", { class: "panel-loading" }, spinner(), h("span", {}, "Buscando tus negocios…")));
+  if (await store.isAdmin()) return go("#/admin");
   let list;
   try {
     list = await store.myBusinesses();

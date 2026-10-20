@@ -1,9 +1,10 @@
 // Acceso a datos con Firebase (Firestore + Authentication).
 // La seguridad la imponen las reglas de firestore.rules; este código solo hace
 // las operaciones que esas reglas permiten a cada rol.
-import { initializeApp } from "firebase/app";
+import { deleteApp, initializeApp } from "firebase/app";
 import {
   connectAuthEmulator,
+  createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -14,15 +15,19 @@ import {
 import {
   collection,
   connectFirestoreEmulator,
+  deleteDoc,
   deleteField,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   getFirestore,
   onSnapshot,
+  limit,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   writeBatch,
@@ -37,6 +42,8 @@ const MESSAGES = {
   "auth/network-request-failed": "Sin conexión. Revisá internet y probá de nuevo.",
   "auth/operation-not-allowed": "Este servicio todavía no está habilitado. Avisale al negocio.",
   "auth/admin-restricted-operation": "Este servicio todavía no está habilitado. Avisale al negocio.",
+  "auth/email-already-in-use": "Ese email ya tiene una cuenta. Usá otro, o vinculalo con la herramienta tools/crear-negocio.mjs.",
+  "auth/weak-password": "La contraseña es muy corta.",
   unavailable: "Sin conexión. Revisá internet y probá de nuevo.",
   "deadline-exceeded": "La conexión está muy lenta. Probá de nuevo.",
   "permission-denied": "No tenés permiso para esta acción.",
@@ -65,9 +72,11 @@ export function createStore(config, emulators) {
 
   let user = null;
   let ready = false;
+  let adminCache = null;
   const listeners = new Set();
   onAuthStateChanged(auth, (u) => {
     user = u ? { uid: u.uid, email: u.email, anonymous: u.isAnonymous } : null;
+    adminCache = null;
     ready = true;
     listeners.forEach((fn) => fn(user));
   });
@@ -173,6 +182,7 @@ export function createStore(config, emulators) {
       return list.filter(Boolean).sort((a, b) => a.name.localeCompare(b.name, "es"));
     },
     async canManage(slug) {
+      if (await this.isAdmin()) return true;
       try {
         const s = await getDoc(doc(db, "access", slug));
         return s.exists() && (s.data().ownerUids ?? []).includes(user?.uid);
@@ -205,6 +215,82 @@ export function createStore(config, emulators) {
         throw friendlyError(e);
       }
     },
+    // ── Superadministrador ────────────────────────────────────────────
+    async isAdmin() {
+      if (!user || user.anonymous) return false;
+      if (adminCache === null) adminCache = await getDoc(doc(db, "admins", user.uid)).then((s) => s.exists(), () => false);
+      return adminCache;
+    },
+    async adminBusinesses() {
+      try {
+        const [biz, acc] = await Promise.all([getDocs(collection(db, "businesses")), getDocs(collection(db, "access"))]);
+        const emails = new Map(acc.docs.map((d) => [d.id, d.data().ownerEmails ?? []]));
+        return biz.docs.map((d) => ({ slug: d.id, ...d.data(), ownerEmails: emails.get(d.id) ?? [] })).sort((a, b) => a.name.localeCompare(b.name, "es"));
+      } catch (e) {
+        throw friendlyError(e);
+      }
+    },
+    async countFeedback(slug) {
+      const c = await getCountFromServer(feedbackCol(slug));
+      return c.data().count;
+    },
+    /**
+     * Crea el negocio y la cuenta de su dueño. La cuenta se crea con una
+     * instancia secundaria de Firebase para no cerrar la sesión del superadministrador.
+     */
+    async createBusiness(slug, profile, ownerEmail, ownerPassword) {
+      if ((await getDoc(doc(db, "businesses", slug))).exists()) throw new Error("Ya existe un negocio con ese identificador. Elegí otro.");
+      const secondary = initializeApp(config, `alta-${Date.now()}`);
+      let uid;
+      try {
+        const secAuth = getAuth(secondary);
+        if (emulators) connectAuthEmulator(secAuth, `http://${emulators.auth}`, { disableWarnings: true });
+        uid = (await createUserWithEmailAndPassword(secAuth, ownerEmail, ownerPassword)).user.uid;
+      } catch (e) {
+        throw friendlyError(e);
+      } finally {
+        await deleteApp(secondary).catch(() => undefined);
+      }
+      try {
+        await setDoc(doc(db, "businesses", slug), { ...profile, logo: null, active: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        await setDoc(doc(db, "access", slug), { ownerUids: [uid], ownerEmails: [ownerEmail.toLowerCase()] });
+      } catch (e) {
+        throw friendlyError(e);
+      }
+    },
+    async setActive(slug, active) {
+      try {
+        await updateDoc(doc(db, "businesses", slug), { active, updatedAt: serverTimestamp() });
+      } catch (e) {
+        throw friendlyError(e);
+      }
+    },
+    /** Borra todas las opiniones de un negocio (por ejemplo, las de prueba). Devuelve cuántas borró. */
+    async clearFeedback(slug) {
+      let total = 0;
+      try {
+        for (;;) {
+          const s = await getDocs(query(feedbackCol(slug), limit(400)));
+          if (s.empty) return total;
+          const batch = writeBatch(db);
+          s.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+          total += s.size;
+        }
+      } catch (e) {
+        throw friendlyError(e);
+      }
+    },
+    async deleteBusiness(slug) {
+      await this.clearFeedback(slug);
+      try {
+        await deleteDoc(doc(db, "access", slug));
+        await deleteDoc(doc(db, "businesses", slug));
+      } catch (e) {
+        throw friendlyError(e);
+      }
+    },
+
     async saveBusiness(slug, profile) {
       try {
         await updateDoc(doc(db, "businesses", slug), { ...profile, updatedAt: serverTimestamp() });

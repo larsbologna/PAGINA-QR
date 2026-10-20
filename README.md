@@ -22,9 +22,10 @@ El nombre y el logo están centralizados en `web/src/brand.js`; los colores, en 
 | Firebase Authentication | Dueños con email y contraseña. Visitantes con sesión **anónima** (sin datos personales), usada solo para limitar envíos. |
 | Firestore | Datos de negocios y opiniones. |
 | `firestore.rules` | La seguridad real: validación de datos en el servidor, aislamiento entre negocios, límite de 1 opinión cada 30 s por visitante, notas privadas, puntuación inalterable. |
-| `tools/crear-negocio.mjs` | Alta de negocios y dueños con el Admin SDK (no hay registro público ni panel de administración). |
+| `#/admin` | Panel de superadministrador: alta, limpieza, suspensión y eliminación de negocios. |
+| `tools/crear-negocio.mjs` | Crea la cuenta de superadministrador (y también negocios) con el Admin SDK. |
 
-Modelo: `businesses/{slug}` (perfil público), `businesses/{slug}/feedback/{id}` (opiniones), `access/{slug}` (dueños), `throttle/{uid}` (límite de envíos).
+Modelo: `admins/{uid}` (superadministradores), `businesses/{slug}` (perfil público), `businesses/{slug}/feedback/{id}` (opiniones), `access/{slug}` (dueños), `throttle/{uid}` (límite de envíos).
 
 ## Puesta en marcha
 
@@ -43,21 +44,29 @@ Sin el paso 5, la web muestra un aviso de configuración pendiente: no simula da
 
 **Settings → Pages → Source: GitHub Actions.** Cada cambio en `main` se publica solo (`.github/workflows/pages.yml`) en `https://<usuario>.github.io/<repo>/`.
 
-### 3. Dar de alta un negocio
+### 3. Crear tu cuenta de superadministrador (una sola vez)
 
 Descargá la clave de servicio (**Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada**). Guardala fuera del repositorio: da acceso total.
 
 ```bash
 npm install
-npm run negocio:crear -- --clave ~/claves/cuenta-servicio.json \
-  --slug cafe-la-esquina --nombre "Café La Esquina" --email duena@ejemplo.com \
-  --rubro Cafetería --google "https://g.page/r/…/review"
+npm run negocio:crear -- --clave C:\ruta\clave.json --superadmin --email vos@ejemplo.com --password "una-clave-larga"
 ```
 
-- Muestra una contraseña aleatoria **una sola vez**. Para elegirla, agregá `--password`.
-- Si el email ya existe, vincula esa cuenta al negocio.
-- Para pausar o reanudar la página pública: `--slug cafe-la-esquina --suspender` o `--activar`.
-- El QR debe apuntar a `https://<tu-web>/?c=cafe-la-esquina`. Ese enlace no cambia aunque el dueño cambie el enlace de reseñas de Google.
+Después volvé a publicar las reglas de `firestore.rules` en Firebase (incluyen los permisos del superadministrador).
+
+### 4. Gestionar negocios desde la web
+
+Entrá a `…/#/login` con tu cuenta: vas directo al panel **Superadmin** (`…/#/admin`), donde podés:
+
+- **Nuevo negocio:** nombre, identificador del QR, rubro, enlace de Google y email del dueño. Crea su pantalla, su panel y la cuenta del dueño, y te muestra los datos para pasarle.
+- **Abrir panel** de cualquier negocio (por ejemplo, para cargarle el logo).
+- **Borrar opiniones:** deja el negocio limpio (por ejemplo, después de una demostración) y conserva el logo, el enlace y el dueño.
+- **Suspender / Activar** la pantalla del QR (por ejemplo, si no paga).
+- **Eliminar** el negocio con todas sus opiniones.
+- **Enviar email de nueva contraseña** al dueño.
+
+La herramienta de consola sigue disponible: `npm run negocio:crear -- --clave … --slug … --nombre … --email …` (y `--suspender` / `--activar`).
 
 ## Desarrollo y pruebas
 
@@ -82,5 +91,6 @@ Las pruebas cubren:
 ## Límites y costos
 
 - Firestore gratuito: 50.000 lecturas y 20.000 escrituras por día. El panel lee todas las opiniones del negocio al abrirse, así que alcanza de sobra para negocios chicos y medianos.
+- Almacenamiento gratuito: 1 GB. Una opinión ocupa menos de 1 KB y un logo unos 30 a 100 KB: entran cientos de negocios y cientos de miles de opiniones. Si se supera, el plan Blaze cobra solo el excedente.
 - Contra el spam, las reglas limitan cada sesión a 1 opinión cada 30 s, y Firebase limita la creación de sesiones anónimas por IP. Para más protección, activá **App Check** (reCAPTCHA) en Firebase.
 - Recuperar la contraseña usa el email de Firebase Authentication (gratis).
