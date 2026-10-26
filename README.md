@@ -67,6 +67,7 @@ Entrá a `…/#/login` con tu cuenta: vas directo al panel **Superadmin** (`…/
 
 - **Nuevo negocio:** nombre, identificador del QR, rubro, enlace de Google y email del dueño. Crea su pantalla, su panel y la cuenta del dueño, y te muestra los datos para pasarle.
 - **Abrir panel** de cualquier negocio (por ejemplo, para cargarle el logo).
+- **Imprimir QR:** descarga la tarjeta lista para imprenta (85,6 × 54 mm + 3 mm de sangrado, PNG a 300 dpi, con logo, nombre, estrellas y QR) y el QR solo en SVG vectorial o PNG. Cargá el logo del negocio antes de descargarla.
 - **Borrar opiniones:** deja el negocio limpio (por ejemplo, después de una demostración) y conserva el logo, el enlace y el dueño.
 - **Suspender / Activar** la pantalla del QR (por ejemplo, si no paga).
 - **Eliminar** el negocio con todas sus opiniones.

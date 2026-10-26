@@ -3,6 +3,8 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { test, expect, devices, type Browser, type Page } from "@playwright/test";
 import { initializeTestEnvironment, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
+import { PNG } from "pngjs";
+import jsQR from "jsqr";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 
 const BASE = "http://localhost:4174/";
@@ -386,6 +388,57 @@ test("superadministrador: crea, limpia, suspende y elimina negocios", async ({ p
   await page.getByRole("dialog").getByRole("button", { name: "Eliminar negocio" }).click();
   await expect(page.getByText("Negocio eliminado")).toBeVisible();
   await expect(card).toHaveCount(0);
+});
+
+/** Lee el contenido de un QR en una imagen PNG. */
+function readQr(buf: Buffer) {
+  const png = PNG.sync.read(buf);
+  return jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data ?? null;
+}
+
+test("imprimir QR: tarjeta y QR con logo se pueden escanear", async ({ page }) => {
+  // Logo de prueba (un cuadrado de color) para comprobar que el QR se lee con logo al centro.
+  const logo = new PNG({ width: 64, height: 64 });
+  for (let i = 0; i < logo.data.length; i += 4) logo.data.set([220, 60, 40, 255], i);
+  const logoUrl = `data:image/png;base64,${PNG.sync.write(logo).toString("base64")}`;
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const { updateDoc } = await import("firebase/firestore");
+    await updateDoc(doc(ctx.firestore(), "businesses/cafe-test"), { logo: logoUrl });
+  });
+  const expected = `${BASE}?c=cafe-test`;
+  await login(page, "super@e2e.test");
+  await page.locator(".biz-card", { hasText: "Café de Prueba" }).getByRole("button", { name: "Imprimir QR" }).click();
+  const dlg = page.getByRole("dialog");
+  await expect(dlg.getByRole("img", { name: /Vista previa/ })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/13-imprimir.png` });
+
+  const grab = async (name: RegExp) => {
+    const [dl] = await Promise.all([page.waitForEvent("download"), dlg.getByRole("button", { name }).click()]);
+    const path = await dl.path();
+    return { name: dl.suggestedFilename(), buf: readFileSync(path!) };
+  };
+  const card = await grab(/Tarjeta para imprenta/);
+  expect(card.name).toBe("tarjeta-cafe-test.png");
+  const cardPng = PNG.sync.read(card.buf);
+  // 85,6 × 54 mm + 3 mm de sangrado por lado, a 300 dpi.
+  expect(cardPng.width).toBe(1082);
+  expect(cardPng.height).toBe(709);
+  expect(readQr(card.buf)).toBe(expected);
+
+  const png = await grab(/Solo QR \(PNG\)/);
+  expect(png.name).toBe("qr-cafe-test.png");
+  expect(readQr(png.buf)).toBe(expected);
+
+  const svg = await grab(/Solo QR \(SVG/);
+  expect(svg.name).toBe("qr-cafe-test.svg");
+  const svgText = svg.buf.toString("utf8");
+  expect(svgText).toContain("<svg");
+  // El SVG, dibujado en el navegador, también se escanea.
+  const p2 = await page.context().newPage();
+  await p2.setContent(`<body style="margin:0"><img src="data:image/svg+xml;base64,${svg.buf.toString("base64")}" width="600" height="600"></body>`);
+  await p2.waitForTimeout(300);
+  expect(readQr(await p2.screenshot({ clip: { x: 0, y: 0, width: 600, height: 600 } }))).toBe(expected);
+  await p2.close();
 });
 
 test("estado vacío del panel", async ({ page }) => {

@@ -2,6 +2,7 @@
 import { BRAND, brandLogo } from "../brand.js";
 import { SLUG_RE } from "../lib/feedback.js";
 import { checkGoogleUrl } from "../lib/google-url.js";
+import { CARD, cardPng, download, qrPng, qrSvg } from "../lib/print-qr.js";
 import { reviewArt } from "../review-art.js";
 import { copyText, fmtNum, h, icon, logoEl, mount, publicUrl, spinner, toast } from "../ui.js";
 
@@ -50,6 +51,39 @@ function confirmDialog({ title, text, confirmLabel, danger = false, typeToConfir
     dlg.showModal();
     (input ?? ok).focus();
   });
+}
+
+/** Ventana con la tarjeta lista para imprenta y los archivos del QR. */
+async function printDialog(b) {
+  const url = publicUrl(b.slug);
+  const preview = h("div", { class: "print-preview" }, spinner("Preparando"), h("span", {}, "Preparando…"));
+  const actions = h("div", { class: "print-actions" });
+  const dlg = h(
+    "dialog",
+    { class: "dialog dialog-wide", "aria-labelledby": "print-title" },
+    h(
+      "div",
+      { class: "stack dialog-body" },
+      h("div", { class: "card-head" }, h("h2", { id: "print-title", class: "dialog-title" }, `QR de «${b.name}» para imprimir`), h("button", { type: "button", class: "icon-btn", "aria-label": "Cerrar", onclick: () => dlg.close() }, icon("close", 18))),
+      preview,
+      h("p", { class: "muted small" }, `Apunta a ${url}. Tarjeta de ${String(CARD.widthMm).replace(".", ",")} × ${CARD.heightMm} mm con ${CARD.bleedMm} mm de sangrado por lado, a 300 dpi.`),
+      actions,
+    ),
+  );
+  dlg.addEventListener("close", () => dlg.remove());
+  document.body.append(dlg);
+  dlg.showModal();
+  try {
+    const card = await cardPng(b, url);
+    preview.replaceChildren(h("img", { src: card.toDataURL("image/png"), alt: `Vista previa de la tarjeta de ${b.name}`, class: "print-card" }));
+    actions.append(
+      h("button", { type: "button", class: "btn btn-primary", onclick: () => download(card, `tarjeta-${b.slug}.png`) }, icon("download", 16), h("span", {}, "Tarjeta para imprenta (PNG)")),
+      h("button", { type: "button", class: "btn btn-ghost", onclick: () => download(qrSvg(url, b.logo), `qr-${b.slug}.svg`, "image/svg+xml") }, icon("download", 16), h("span", {}, "Solo QR (SVG vectorial)")),
+      h("button", { type: "button", class: "btn btn-ghost", onclick: async () => download(await qrPng(url, b.logo), `qr-${b.slug}.png`) }, icon("download", 16), h("span", {}, "Solo QR (PNG)")),
+    );
+  } catch (e) {
+    preview.replaceChildren(h("p", { class: "alert", role: "alert" }, icon("alert", 18), h("span", {}, `No se pudo generar: ${e.message}`)));
+  }
 }
 
 export async function renderAdmin(root, store, go) {
@@ -227,6 +261,7 @@ export async function renderAdmin(root, store, go) {
         { class: "biz-card-actions" },
         h("a", { class: "btn btn-primary small", href: `#/panel/${encodeURIComponent(b.slug)}` }, icon("home", 16), h("span", {}, "Abrir panel")),
         h("a", { class: "btn btn-ghost small", href: url, target: "_blank", rel: "noopener" }, icon("external", 16), h("span", {}, "Ver QR")),
+        h("button", { type: "button", class: "btn btn-ghost small", onclick: () => printDialog(b) }, icon("printer", 16), h("span", {}, "Imprimir QR")),
         toggle,
         clear,
         del,

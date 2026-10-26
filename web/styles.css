@@ -617,3 +617,11 @@ textarea { resize: vertical; min-height: 6rem; line-height: 1.45; }
 .dialog-title { font-family: var(--f-display); font-size: 1.25rem; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
 .dialog[open] { animation: screen-in 0.25s var(--ease) both; }
+
+/* Ventana "Imprimir QR" */
+.dialog-wide { width: min(46rem, calc(100vw - 2rem)); }
+.dialog-body { padding: 1.3rem 1.3rem 1.2rem; }
+.dialog-body .card-head { margin-bottom: 0; }
+.print-preview { display: grid; place-items: center; min-height: 12rem; gap: 0.5rem; color: var(--muted); background: repeating-conic-gradient(var(--card-2) 0 25%, var(--card) 0 50%) 0 0 / 22px 22px; border: 1px solid var(--line-2); border-radius: 16px; padding: 1rem; }
+.print-card { width: 100%; max-width: 34rem; height: auto; border-radius: 14px; box-shadow: var(--sh-3); }
+.print-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
