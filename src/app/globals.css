@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #080808;
+  --color-panel: #111111;
+  --color-panel-2: #171717;
+  --color-line: #242424;
+  --color-line-strong: #333333;
+  --color-muted: #9a9a9a;
+  --color-faint: #6b6b6b;
+  --color-accent: var(--ui-accent);
+  --color-accent-ink: var(--ui-accent-ink);
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Inter Variable", sans-serif;
+}
+
+:root {
+  --ui-accent: #c6f432;
+  --ui-accent-ink: #0a0a0a;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #080808;
+  color: #fff;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--ui-accent);
+  color: var(--ui-accent-ink);
+}
+
+/* Barras de desplazamiento discretas en los paneles */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #2c2c2c transparent;
+}
+
+input[type="range"] {
+  accent-color: var(--ui-accent);
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 8px;
+}
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 8px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.28s ease-out both;
+}

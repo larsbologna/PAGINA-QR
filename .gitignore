@@ -1,11 +1,11 @@
 node_modules/
-playwright-report/
-test-results/
-web/dist/
-web/dist-emu/
-*-debug.log
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+.env*.local
+# Exportaciones locales (solo en desarrollo)
+public/export/
 .DS_Store
 npm-debug.log*
-# Clave privada de la cuenta de servicio de Firebase (nunca al repositorio)
-*cuenta-servicio*.json
-serviceAccount*.json
