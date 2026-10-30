@@ -11,8 +11,9 @@ import { Workspace } from "./Workspace";
 import { Inspector } from "./Inspector";
 import { buildSlide } from "@/lib/content/templateGenerator";
 import { Button } from "@/components/ui/controls";
-import { IconRedo, IconSparkle, IconUndo } from "@/components/ui/icons";
+import { IconDownload, IconRedo, IconSparkle, IconUndo } from "@/components/ui/icons";
 import { UiAccentPicker } from "./UiAccentPicker";
+import { ExportDialog } from "./ExportDialog";
 
 type MobileTab = "config" | "canvas" | "inspect";
 
@@ -23,6 +24,7 @@ export function Editor() {
   const [busy, setBusy] = useState(false);
   const generator = getGenerator(GENERATORS[0].id);
   const [selected, setSelected] = useState("");
+  const [exporting, setExporting] = useState(false);
   // Si el slide seleccionado ya no existe (borrado, deshacer), se toma el primero.
   const selectedSlide = project.slides.find((s) => s.id === selected) ?? project.slides[0];
 
@@ -133,8 +135,18 @@ export function Editor() {
             <IconRedo />
           </Button>
           <UiAccentPicker />
+          <Button
+            variant="primary"
+            className="ml-1 px-3 text-xs tracking-wide sm:ml-2 sm:px-4"
+            onClick={() => setExporting(true)}
+            disabled={!project.slides.length}
+            title={project.slides.length ? "Exportar los slides como PNG" : "Primero generá la estructura"}
+          >
+            <IconDownload /> <span className="hidden sm:inline">EXPORTAR A PNG</span>
+          </Button>
         </div>
       </header>
+      {exporting && <ExportDialog project={project} currentId={selectedSlide?.id} onClose={() => setExporting(false)} />}
 
       {/* Pestañas en pantallas chicas */}
       <div className="flex shrink-0 border-b border-line bg-panel lg:hidden" role="tablist">
