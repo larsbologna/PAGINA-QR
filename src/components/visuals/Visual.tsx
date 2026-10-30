@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import type { Visual as VisualData, VisualKind } from "@/lib/types";
 import { VISUALS } from "@/lib/visuals";
-import { withAlpha } from "@/lib/color";
 import type { SlideTheme } from "@/components/slide/theme";
 import {
   ChatVisual,
@@ -17,8 +16,18 @@ import {
   StepsVisual,
   type VisualProps,
 } from "./general";
+import {
+  MapsCompareVisual,
+  MapsSearchVisual,
+  PhotoReviewsVisual,
+  PresenceMixVisual,
+  QrStandVisual,
+  ReviewReplyVisual,
+  StoreContrastVisual,
+  WhatsappChatVisual,
+} from "./maps";
 
-const REGISTRY: Partial<Record<VisualKind, ComponentType<VisualProps>>> = {
+const REGISTRY: Record<Exclude<VisualKind, "none">, ComponentType<VisualProps>> = {
   photo: PhotoVisual,
   phone: PhoneVisual,
   stats: StatsVisual,
@@ -30,6 +39,14 @@ const REGISTRY: Partial<Record<VisualKind, ComponentType<VisualProps>>> = {
   chat: ChatVisual,
   review: ReviewVisual,
   "cta-button": CtaButtonVisual,
+  "store-contrast": StoreContrastVisual,
+  "maps-compare": MapsCompareVisual,
+  "maps-search": MapsSearchVisual,
+  "presence-mix": PresenceMixVisual,
+  "qr-stand": QrStandVisual,
+  "review-reply": ReviewReplyVisual,
+  "whatsapp-chat": WhatsappChatVisual,
+  "photo-reviews": PhotoReviewsVisual,
 };
 
 /** Dibuja el visual de un slide ocupando todo el espacio que le deja el texto. */
@@ -37,11 +54,5 @@ export function Visual({ visual, t, d3 }: { visual: VisualData; t: SlideTheme; d
   if (visual.kind === "none") return null;
   const Component = REGISTRY[visual.kind];
   const props = { ...VISUALS[visual.kind].defaults, ...visual.props };
-  if (Component) return <Component p={props} t={t} image={visual.image} d3={d3} />;
-  // Visual todavía sin componente: marcador visible solo para que se note.
-  return (
-    <div style={{ position: "absolute", inset: 0, borderRadius: 36, border: `3px dashed ${withAlpha(t.text, 0.18)}`, display: "grid", placeItems: "center", color: withAlpha(t.text, 0.45), fontFamily: t.bodyFamily, fontSize: 30 }}>
-      {VISUALS[visual.kind].label}
-    </div>
-  );
+  return <Component p={props} t={t} image={visual.image} d3={d3} />;
 }

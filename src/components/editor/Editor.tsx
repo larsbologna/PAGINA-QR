@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useProjectStore } from "@/lib/store";
-import { createProject } from "@/lib/defaults";
+import { createGoogleMapsProject } from "@/data/templates/googleMaps";
 import { rename, setPlan, setStage } from "@/lib/projectOps";
 import { GENERATORS, getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
@@ -17,8 +17,8 @@ import { UiAccentPicker } from "./UiAccentPicker";
 type MobileTab = "config" | "canvas" | "inspect";
 
 export function Editor() {
-  const store = useProjectStore(() => createProject());
-  const { project, apply, undo, redo, canUndo, canRedo } = store;
+  const store = useProjectStore(() => createGoogleMapsProject());
+  const { project, apply, undo, redo, canUndo, canRedo, load } = store;
   const [tab, setTab] = useState<MobileTab>("config");
   const [busy, setBusy] = useState(false);
   const generator = getGenerator(GENERATORS[0].id);
@@ -177,7 +177,17 @@ export function Editor() {
         <main
           className={`scroll-thin min-w-0 flex-1 lg:block ${project.stage === "edit" ? "overflow-hidden" : "overflow-y-auto"} ${tab === "canvas" ? "block" : "hidden"}`}
         >
-          {project.stage === "brief" && <BriefIntro project={project} generatorDescription={generator.description} onPropose={propose} busy={busy} />}
+          {project.stage === "brief" && <BriefIntro
+              project={project}
+              generatorDescription={generator.description}
+              onPropose={propose}
+              busy={busy}
+              onLoadTemplate={(p) => {
+                if (project.slides.length && !confirm("Se reemplaza el carrusel actual por la plantilla. ¿Seguimos?")) return;
+                load(p);
+                setSelected("");
+              }}
+            />}
           {project.stage === "plan" && <PlanView project={project} apply={apply} onRepropose={propose} />}
           {project.stage === "edit" && selectedSlide && (
             <Workspace project={project} apply={apply} selectedId={selectedSlide.id} onSelect={setSelected} onAdd={addSlide} />

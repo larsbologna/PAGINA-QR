@@ -183,8 +183,9 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
     fields: [
       { key: "headline", label: "Texto del soporte" },
       { key: "sub", label: "Texto chico" },
+      { key: "seed", label: "Enlace que abre el QR (escaneable)" },
     ],
-    defaults: { headline: "¿Te gustó?", sub: "Escaneá y dejanos tu reseña" },
+    defaults: { headline: "¿Te gustó?", sub: "Escaneá y dejanos tu reseña", seed: "https://ejemplo.com" },
   },
   "review-reply": {
     label: "Respuesta a reseña",
@@ -192,13 +193,13 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
     fields: [
       { key: "author", label: "Autor de la reseña" },
       { key: "review", label: "Reseña", multiline: true },
-      { key: "business", label: "Nombre del negocio" },
+      { key: "business", label: "Encabezado de la respuesta" },
       { key: "reply", label: "Respuesta", multiline: true },
     ],
     defaults: {
       author: "Martín G.",
       review: "La muzza, un golazo. Llegó calentita y el delivery fue rapidísimo.",
-      business: "Propietario",
+      business: "Respuesta del propietario",
       reply: "¡Gracias, Martín! Qué bueno que te gustó. Te esperamos la próxima.",
     },
   },

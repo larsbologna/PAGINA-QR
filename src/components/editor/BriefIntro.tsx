@@ -1,5 +1,6 @@
 "use client";
 import type { Project } from "@/lib/types";
+import { TEMPLATES } from "@/data/templates/googleMaps";
 import { structureFor, ROLE_INFO } from "@/lib/content/narrative";
 import { Button } from "@/components/ui/controls";
 import { IconSparkle } from "@/components/ui/icons";
@@ -12,7 +13,19 @@ const FLOW = [
   ["Exportación", "Descargás los PNG numerados o el ZIP completo."],
 ];
 
-export function BriefIntro({ project, generatorDescription, onPropose, busy }: { project: Project; generatorDescription: string; onPropose: () => void; busy: boolean }) {
+export function BriefIntro({
+  project,
+  generatorDescription,
+  onPropose,
+  busy,
+  onLoadTemplate,
+}: {
+  project: Project;
+  generatorDescription: string;
+  onPropose: () => void;
+  busy: boolean;
+  onLoadTemplate: (p: Project) => void;
+}) {
   const roles = structureFor(project.slideCount);
   return (
     <div className="relative mx-auto max-w-3xl px-6 py-10 md:py-16">
@@ -46,6 +59,30 @@ export function BriefIntro({ project, generatorDescription, onPropose, busy }: {
         <Button variant="primary" className="mt-6 px-6 py-3 text-base" onClick={onPropose} disabled={busy}>
           <IconSparkle /> Proponer estructura
         </Button>
+
+        <div className="mt-10">
+          <div className="mb-3 text-xs font-semibold tracking-[0.2em] text-muted uppercase">O empezá desde una plantilla</div>
+          {TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={() => onLoadTemplate(tpl.create())}
+              className="group flex w-full items-center gap-4 rounded-2xl border border-line bg-panel p-4 text-left transition hover:border-accent/60"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#ffc94d]/15 text-[#ffc94d]">
+                <svg width="22" height="28" viewBox="0 0 24 31">
+                  <path d="M12 0C5.4 0 0 5.2 0 11.7 0 20.3 12 31 12 31s12-10.7 12-19.3C24 5.2 18.6 0 12 0z" fill="currentColor" />
+                  <circle cx="12" cy="11.5" r="4.4" fill="#111" />
+                </svg>
+              </span>
+              <span className="flex-1">
+                <span className="block font-semibold">{tpl.name}</span>
+                <span className="mt-0.5 block text-xs text-muted">{tpl.description}</span>
+              </span>
+              <span className="text-sm text-accent opacity-0 transition group-hover:opacity-100">Abrir →</span>
+            </button>
+          ))}
+        </div>
 
         <ol className="mt-12 grid gap-3 sm:grid-cols-5">
           {FLOW.map(([t, d], i) => (
