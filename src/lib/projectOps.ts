@@ -1,6 +1,7 @@
 // Operaciones puras sobre un proyecto. El editor las usa a través del store, que se
 // encarga del historial (deshacer / rehacer).
-import type { ContentBrief, DesignConfig, FormatId, Project, Slide } from "./types";
+import type { ContentBrief, ContentCategory, DesignConfig, FormatId, Project, Slide } from "./types";
+import { designFor, isStockDesign } from "./content/categoryDesigns";
 import { buildSlide } from "./content/templateGenerator";
 import { clampCount } from "./content/narrative";
 import { uid } from "./ids";
@@ -10,6 +11,16 @@ export type Recipe = (p: Project) => Project;
 export const setBrief = (patch: Partial<ContentBrief>): Recipe => (p) => ({ ...p, brief: { ...p.brief, ...patch } });
 
 export const setDesign = (patch: Partial<DesignConfig>): Recipe => (p) => ({ ...p, design: { ...p.design, ...patch } });
+
+/**
+ * Elige el tipo de carrusel. Si el diseño no fue personalizado, aplica el diseño
+ * propio de ese tipo; si ya lo cambiaste, lo respeta.
+ */
+export const chooseCategory = (category: ContentCategory): Recipe => (p) => ({
+  ...p,
+  brief: { ...p.brief, category },
+  design: isStockDesign(p.design) ? designFor(category) : p.design,
+});
 
 export const setFormat = (format: FormatId): Recipe => (p) => ({ ...p, format });
 

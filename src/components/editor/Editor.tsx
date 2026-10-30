@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "@/lib/types";
 import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
-import { rename, setBrief, setPlan, setStage } from "@/lib/projectOps";
+import { chooseCategory, rename, setPlan, setStage } from "@/lib/projectOps";
 import { GENERATORS, getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
@@ -310,7 +310,7 @@ export function Editor({ initial }: { initial: Project }) {
               onPropose={propose}
               busy={busy}
               onLoadTemplate={startFromTemplate}
-              onCategory={(category) => apply(setBrief({ category }))}
+              onCategory={(category) => apply(chooseCategory(category))}
             />}
           {project.stage === "plan" && <PlanView project={project} apply={apply} onRepropose={propose} />}
           {project.stage === "edit" && selectedSlide && (

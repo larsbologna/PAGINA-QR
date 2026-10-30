@@ -71,6 +71,7 @@ export function ExportDialog({ project, currentId, onClose }: { project: Project
         const s = selected[i];
         const texts = [s.title, s.subtitle, s.body, ...Object.values(s.visual.props)].join(" ");
         if (/\[[^\]]+\]/.test(texts)) found.push({ number: n, text: "tiene un texto [entre corchetes] para completar." });
+        if (s.visual.kind === "photo" && !s.visual.image) found.push({ number: n, text: "tiene un visual de foto sin imagen cargada." });
         const t = resolveTheme(project.design, s);
         if (contrastRatio(t.text, t.bg) < 4.5) found.push({ number: n, text: "el contraste entre texto y fondo es bajo." });
       });

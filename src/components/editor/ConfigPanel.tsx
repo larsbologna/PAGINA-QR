@@ -1,7 +1,8 @@
 "use client";
 import type { Align, DesignConfig, ImageStyle, Project, Tone, VisualStyle } from "@/lib/types";
 import type { Recipe } from "@/lib/projectOps";
-import { setBrief, setDesign, setFormat, setSlideCount } from "@/lib/projectOps";
+import { chooseCategory, setBrief, setDesign, setFormat, setSlideCount } from "@/lib/projectOps";
+import { designFor, matchesCategoryDesign } from "@/lib/content/categoryDesigns";
 import { PALETTES } from "@/lib/defaults";
 import { structureFor } from "@/lib/content/narrative";
 import { FONTS } from "@/lib/fonts";
@@ -9,7 +10,7 @@ import { FORMATS } from "@/lib/formats";
 import { ColorInput, Section, Segmented, Select, Slider, TextArea, TextInput, Toggle } from "@/components/ui/controls";
 import { ContrastBadge } from "@/components/ui/ContrastBadge";
 import { DesignPresets } from "./DesignPresets";
-import { CategoryChips } from "./CategoryPicker";
+import { CategoryChips, CategorySwatch } from "./CategoryPicker";
 import { categoryOf } from "@/lib/content/categories";
 import { IconAlignCenter, IconAlignLeft, IconAlignRight, IconFrame, IconLayers, IconPalette, IconText } from "@/components/ui/icons";
 
@@ -58,7 +59,7 @@ export function ConfigPanel({ project, apply }: { project: Project; apply: (r: R
   return (
     <div>
       <Section title="Contenido" icon={<IconText />}>
-        <CategoryChips value={brief.category} onChange={(c) => apply(setBrief({ category: c }))} />
+        <CategoryChips value={brief.category} onChange={(c) => apply(chooseCategory(c))} />
         <TextArea label={fields.topic.label} rows={2} value={brief.topic} onChange={b("topic")} placeholder={fields.topic.placeholder} />
         <TextInput label={fields.businessName.label} value={brief.businessName} onChange={b("businessName")} placeholder={fields.businessName.placeholder} />
         <TextInput label={fields.goal.label} value={brief.goal} onChange={b("goal")} placeholder={fields.goal.placeholder} />
@@ -103,6 +104,19 @@ export function ConfigPanel({ project, apply }: { project: Project; apply: (r: R
       </Section>
 
       <Section title="Diseño" icon={<IconPalette />}>
+        {brief.category && !matchesCategoryDesign(design, brief.category) && (
+          <button
+            type="button"
+            onClick={() => apply(setDesign(designFor(brief.category as Exclude<typeof brief.category, "">)))}
+            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-accent/50 bg-accent/5 p-2.5 text-left text-xs transition hover:bg-accent/10"
+          >
+            <CategorySwatch category={brief.category} />
+            <span className="flex-1">
+              <span className="block font-semibold text-white">Usar el diseño de {categoryOf(brief).label}</span>
+              <span className="text-muted">Reemplaza colores, tipografías y estilo (podés deshacer)</span>
+            </span>
+          </button>
+        )}
         <DesignPresets design={design} onApply={(saved) => apply(setDesign(saved))} />
         <div className="space-y-1.5">
           <div className="text-xs font-medium text-muted">Paletas rápidas</div>

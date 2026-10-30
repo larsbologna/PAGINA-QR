@@ -1,6 +1,8 @@
 "use client";
 import type { ContentCategory } from "@/lib/types";
 import { CATEGORY_LIST } from "@/lib/content/categories";
+import { designFor } from "@/lib/content/categoryDesigns";
+import { getFont } from "@/lib/fonts";
 
 const ICONS: Record<ContentCategory, React.ReactNode> = {
   negocio: <path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6" />,
@@ -20,6 +22,22 @@ function Icon({ id, size = 22 }: { id: ContentCategory; size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       {ICONS[id]}
     </svg>
+  );
+}
+
+/** Muestra chica del diseño propio de un tipo. */
+export function CategorySwatch({ category, size = 36 }: { category: ContentCategory; size?: number }) {
+  const d = designFor(category);
+  const font = getFont(d.titleFont);
+  return (
+    <span
+      className="relative grid shrink-0 place-items-center overflow-hidden rounded-lg"
+      style={{ width: size, height: size * 1.25, background: d.background, color: d.text, fontFamily: font.family, fontWeight: font.titleWeight, fontSize: size * 0.42, boxShadow: "inset 0 0 0 1px #ffffff1f" }}
+      aria-hidden
+    >
+      Aa
+      <span className="absolute bottom-1.5 left-1/2 h-1 w-1/2 -translate-x-1/2 rounded-full" style={{ background: d.accent }} />
+    </span>
   );
 }
 
@@ -47,7 +65,10 @@ export function CategoryCards({ value, onChange }: { value: ContentCategory | ""
               <span className="font-semibold">{c.label}</span>
             </span>
             <span className="text-xs leading-snug text-muted">{c.description}</span>
-            <span className="text-[11px] leading-snug text-faint">Ej.: {c.examples[0]}</span>
+            <span className="flex items-center gap-2">
+              <CategorySwatch category={c.id} size={22} />
+              <span className="text-[11px] leading-snug text-faint">Ej.: {c.examples[0]}</span>
+            </span>
           </button>
         );
       })}

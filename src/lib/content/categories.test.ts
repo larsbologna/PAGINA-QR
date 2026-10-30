@@ -59,3 +59,11 @@ describe("tipos de carrusel", () => {
     expect(cats).toEqual(["crecimiento", "negocio"]);
   });
 });
+
+describe("fotos en Mi proceso", () => {
+  it("solo los slides de la historia piden foto", () => {
+    const slides = planFromTemplates({ brief: brief("proceso"), count: 10, imageStyle: "fotos" });
+    const withPhoto = slides.flatMap((s, i) => (s.visual.kind === "photo" ? [i + 1] : []));
+    expect(withPhoto).toEqual([1, 2, 5]);
+  });
+});

@@ -16,7 +16,7 @@ Se despliega en Vercel sin configuración extra: importar el repositorio y acept
 
 ## Cómo se usa
 
-0. **Tipo de carrusel** (obligatorio antes de proponer): Negocios, Crecimiento personal, Motivación, Mi proceso o Hábitos y productividad. Cambia los nombres de los campos, el papel de cada slide, los textos base y los visuales sugeridos. En "Mi proceso" quedan textos `[entre corchetes]` para completar con tu historia; la exportación avisa si queda alguno.
+0. **Tipo de carrusel** (obligatorio antes de proponer): Negocios, Crecimiento personal, Motivación, Mi proceso o Hábitos y productividad. Cambia los nombres de los campos, el papel de cada slide, los textos base, los visuales sugeridos y el diseño por defecto (Negocios: oscuro y contundente; Crecimiento: editorial claro con serif; Motivación: frases grandes sobre aura violeta; Mi proceso: cálido y sobrio para fotos propias; Hábitos: claro y ordenado en azul). El diseño del tipo se aplica solo si no personalizaste el actual; si no, aparece "Usar el diseño de…" en la sección Diseño. En "Mi proceso" quedan textos `[entre corchetes]` para completar con tu historia; la exportación avisa si queda alguno.
 1. **Brief** (panel izquierdo): temática, negocio, objetivo, público, problema, beneficio, servicio, llamada a la acción, tono e instrucciones. Las líneas de las instrucciones que empiezan con `-` o un número se usan como consejos propios.
 2. **Proponer estructura**: arma de 1 a 10 slides con estructura narrativa (gancho, problema, ejemplo, cómo funciona, argumento, consejos, CTA).
 3. **Revisión**: se edita cada título, subtítulo, texto y visual. Nada pasa al diseño hasta tocar **Aprobar**.

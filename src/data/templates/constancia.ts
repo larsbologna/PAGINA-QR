@@ -2,6 +2,7 @@ import type { Project, Slide, SlideRole, VisualKind } from "@/lib/types";
 import { createProject } from "@/lib/defaults";
 import { makeVisual } from "@/lib/visuals";
 import { uid } from "@/lib/ids";
+import { designFor } from "@/lib/content/categoryDesigns";
 
 // Ejemplo de crecimiento personal: reflexión + práctica, sin datos inventados.
 
@@ -49,20 +50,7 @@ export function createConstanciaProject(): Project {
       cta: "Guardalo para cuando lo necesites",
       tone: "cercano",
     },
-    design: {
-      ...base.design,
-      background: "#f4efe6",
-      surface: "#e9e1d3",
-      text: "#1b1916",
-      accent: "#c2410c",
-      titleFont: "playfair",
-      bodyFont: "dmsans",
-      titleCase: "normal",
-      titleSize: 124,
-      style: "editorial",
-      intensity: 55,
-      imageStyle: "diagramas",
-    },
+    design: designFor("crecimiento"),
     slideCount: slides.length,
     slides,
   };

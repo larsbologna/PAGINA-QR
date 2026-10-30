@@ -120,7 +120,8 @@ const CTA_BUTTON: Record<PersonalCategory, string> = {
 /** Visual del consejo según el estilo de imágenes, priorizando lo que va con contenido personal. */
 function tipVisual(category: PersonalCategory, style: ImageStyle, i: number): VisualKind {
   if (category === "motivacion") return style === "fotos" ? "photo" : "none";
-  if (style === "fotos") return "photo";
+  // En "Mi proceso" las fotos van en los slides de la historia; los aprendizajes van con texto.
+  if (style === "fotos" && category !== "proceso") return i === 0 ? "photo" : i % 2 ? "quote" : "none";
   // Se alterna para no repetir el mismo recurso en todos los consejos.
   const cycle: VisualKind[] = style === "graficos" || style === "diagramas" ? ["checklist", "steps", "none", "quote"] : ["checklist", "quote", "none", "quote"];
   return cycle[i % cycle.length];
