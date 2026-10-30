@@ -84,6 +84,7 @@ export function createGoogleMapsProject(): Project {
     stage: "edit",
     brief: {
       ...base.brief,
+      category: "negocio",
       topic: GOOGLE_MAPS_TEMPLATE_NAME,
       businessName: "Tu Agencia",
       goal: "Que los dueños de locales nos escriban para armar su sistema de reseñas",
@@ -110,12 +111,3 @@ export function createGoogleMapsProject(): Project {
     slides,
   };
 }
-
-export const TEMPLATES = [
-  {
-    id: "google-maps",
-    name: GOOGLE_MAPS_TEMPLATE_NAME,
-    description: "10 slides sobre reseñas en Google Maps para locales: gancho, comparación, consejos y CTA.",
-    create: createGoogleMapsProject,
-  },
-];

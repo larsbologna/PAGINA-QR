@@ -3,6 +3,7 @@ import { DEFAULT_BRIEF, DEFAULT_DESIGN } from "../defaults";
 import { FORMATS } from "../formats";
 import { VISUALS } from "../visuals";
 import { uid } from "../ids";
+import { CATEGORIES } from "../content/categories";
 
 // Completa con valores por defecto lo que falte en un proyecto guardado o importado,
 // para que versiones viejas o archivos editados a mano no rompan el editor.
@@ -41,13 +42,16 @@ export function normalizeProject(raw: unknown): Project | null {
   const format = str(raw.format) in FORMATS ? (raw.format as Project["format"]) : "1080x1440";
   const stage = ["brief", "plan", "edit"].includes(str(raw.stage)) ? (raw.stage as Project["stage"]) : slides.length ? "edit" : "brief";
   const now = Date.now();
+  const brief = { ...DEFAULT_BRIEF, ...(isObj(raw.brief) ? raw.brief : {}) };
+  // Proyectos anteriores a los tipos de carrusel: si ya tenían slides, eran de negocio.
+  if (!(String(brief.category) in CATEGORIES)) brief.category = slides.length ? "negocio" : "";
   return {
     id: str(raw.id) || uid("p_"),
     name: str(raw.name, "Carrusel sin título") || "Carrusel sin título",
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : now,
     stage: slides.length ? stage : "brief",
-    brief: { ...DEFAULT_BRIEF, ...(isObj(raw.brief) ? raw.brief : {}) },
+    brief,
     design: { ...DEFAULT_DESIGN, ...(isObj(raw.design) ? raw.design : {}) },
     format,
     slideCount: slides.length || (typeof raw.slideCount === "number" ? Math.min(10, Math.max(1, raw.slideCount)) : 10),

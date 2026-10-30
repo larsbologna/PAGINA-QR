@@ -3,6 +3,7 @@ import type { Project, Slide, SlideRole, VisualKind } from "@/lib/types";
 import type { Recipe } from "@/lib/projectOps";
 import { deleteSlide, moveSlide, setStage, updateSlide } from "@/lib/projectOps";
 import { ROLE_INFO } from "@/lib/content/narrative";
+import { categoryOf } from "@/lib/content/categories";
 import { buildSlide } from "@/lib/content/templateGenerator";
 import { VISUALS, makeVisual } from "@/lib/visuals";
 import { uid } from "@/lib/ids";
@@ -26,6 +27,7 @@ export function PlanView({
   onRepropose: () => void;
 }) {
   const { slides } = project;
+  const roleInfo = categoryOf(project.brief).roles;
 
   const tipIndexOf = (i: number) => slides.slice(0, i).filter((s) => s.role === "tip").length;
 
@@ -89,11 +91,11 @@ export function PlanView({
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {ROLE_INFO[r].label}
+                      {roleInfo[r].label}
                     </option>
                   ))}
                 </select>
-                <span className="text-[11px] text-faint">{ROLE_INFO[s.role].purpose}</span>
+                <span className="text-[11px] text-faint">{roleInfo[s.role].purpose}</span>
               </div>
               <input
                 aria-label={`Título del slide ${i + 1}`}

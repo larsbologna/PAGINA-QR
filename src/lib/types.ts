@@ -2,6 +2,9 @@
 
 export type FormatId = "1080x1440" | "1080x1350";
 
+/** Tipo de contenido del carrusel: define estructura, textos sugeridos y visuales. */
+export type ContentCategory = "negocio" | "crecimiento" | "motivacion" | "proceso" | "habitos";
+
 export type Tone = "profesional" | "directo" | "educativo" | "persuasivo" | "cercano";
 
 export type Align = "left" | "center" | "right";
@@ -69,6 +72,8 @@ export interface Slide {
 }
 
 export interface ContentBrief {
+  /** Vacío hasta que se elige el tipo de carrusel. */
+  category: ContentCategory | "";
   topic: string;
   businessName: string;
   goal: string;

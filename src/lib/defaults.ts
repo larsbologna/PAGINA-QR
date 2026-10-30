@@ -21,6 +21,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const DEFAULT_BRIEF: ContentBrief = {
+  category: "",
   topic: "",
   businessName: "",
   goal: "",

@@ -4,6 +4,7 @@ import type { Align, Project, Slide, SlideOverrides, SlideRole, VisualKind } fro
 import type { Recipe } from "@/lib/projectOps";
 import { deleteSlide, duplicateSlide, moveSlide, updateSlide } from "@/lib/projectOps";
 import { ROLE_INFO } from "@/lib/content/narrative";
+import { categoryOf } from "@/lib/content/categories";
 import { VISUALS, makeVisual } from "@/lib/visuals";
 import { fileToDataUrl } from "@/lib/image";
 import { resolveTheme } from "@/components/slide/theme";
@@ -26,6 +27,7 @@ export function Inspector({
   onSelect: (id: string) => void;
 }) {
   const index = project.slides.findIndex((s) => s.id === slide.id);
+  const roleInfo = categoryOf(project.brief).roles;
   const t = resolveTheme(project.design, slide);
   const fileInput = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState("");
@@ -75,7 +77,7 @@ export function Inspector({
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {ROLE_INFO[r].label}
+                {roleInfo[r].label}
               </option>
             ))}
           </select>

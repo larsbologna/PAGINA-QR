@@ -4,7 +4,7 @@ import type { Project } from "@/lib/types";
 import type { Recipe } from "@/lib/projectOps";
 import { moveSlide } from "@/lib/projectOps";
 import { getFormat } from "@/lib/formats";
-import { ROLE_INFO } from "@/lib/content/narrative";
+import { categoryOf } from "@/lib/content/categories";
 import { FluidSlide, ScaledSlide, type Guides } from "@/components/slide/ScaledSlide";
 import { IconLeft, IconPlus, IconRight } from "@/components/ui/icons";
 
@@ -34,6 +34,7 @@ export function Workspace({
   const [dragId, setDragId] = useState<string | null>(null);
 
   const f = getFormat(project.format);
+  const roleInfo = categoryOf(project.brief).roles;
   const slides = project.slides;
   const index = Math.max(0, slides.findIndex((s) => s.id === selectedId));
   const current = slides[index];
@@ -162,7 +163,7 @@ export function Workspace({
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted">
                   <span className="font-semibold text-white/80 tabular-nums">{i + 1}</span>
-                  {ROLE_INFO[s.role].label}
+                  {roleInfo[s.role].label}
                 </div>
               </button>
             ))}
@@ -188,7 +189,7 @@ export function Workspace({
             }}
             onDragEnd={() => setDragId(null)}
             onClick={() => onSelect(s.id)}
-            aria-label={`Slide ${i + 1}: ${ROLE_INFO[s.role].label}`}
+            aria-label={`Slide ${i + 1}: ${roleInfo[s.role].label}`}
             aria-current={s.id === selectedId}
             className={`relative shrink-0 cursor-grab overflow-hidden rounded-md ring-2 transition active:cursor-grabbing ${
               s.id === selectedId ? "ring-accent" : "ring-line hover:ring-line-strong"

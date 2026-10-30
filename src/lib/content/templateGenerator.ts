@@ -3,6 +3,7 @@ import type { ContentGenerator, PlanRequest } from "./generator";
 import { structureFor } from "./narrative";
 import { makeVisual, suggestVisual } from "../visuals";
 import { uid } from "../ids";
+import { personalSlide } from "./personalCopy";
 
 // Generación sin IA: arma la estructura con frases de plantilla a partir de lo que
 // cargaste en el brief. Es un punto de partida para editar, no texto final.
@@ -147,6 +148,18 @@ function fieldsFrom(brief: ContentBrief): Fields {
 
 export function buildSlide(role: SlideRole, brief: ContentBrief, imageStyle: ImageStyle, tipIndex = 0): Slide {
   const f = fieldsFrom(brief);
+  if (brief.category && brief.category !== "negocio") {
+    const p = personalSlide(
+      brief.category,
+      role,
+      { topic: f.topic, name: f.business, audience: f.audience, problem: f.problem, benefit: f.benefit, offer: f.offer, cta: f.cta },
+      brief.tone,
+      imageStyle,
+      tipIndex,
+      extractTips(brief.extra),
+    );
+    return { id: uid("s_"), role, title: p.title, subtitle: p.subtitle, body: p.body, visual: makeVisual(p.visual, p.props), overrides: {} };
+  }
   const copy = copyFor(role, f, brief.tone, tipIndex, extractTips(brief.extra), hash(f.topic));
   const kind = suggestVisual(role, imageStyle, tipIndex);
   const props: Record<string, string> = {};

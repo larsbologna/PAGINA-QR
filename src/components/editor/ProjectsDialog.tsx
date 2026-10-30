@@ -6,7 +6,8 @@ import { createProject } from "@/lib/defaults";
 import { uid } from "@/lib/ids";
 import { slugify } from "@/lib/export/filenames";
 import { downloadBlob } from "@/lib/export/output";
-import { TEMPLATES } from "@/data/templates/googleMaps";
+import { TEMPLATES } from "@/data/templates";
+import { CATEGORIES } from "@/lib/content/categories";
 import { ScaledSlide } from "@/components/slide/ScaledSlide";
 import { Button } from "@/components/ui/controls";
 import { IconCopy, IconDownload, IconEdit, IconPlus, IconTrash } from "@/components/ui/icons";
@@ -148,11 +149,22 @@ export function ProjectsDialog({
           <Button variant="primary" onClick={() => create(createProject())}>
             <IconPlus /> Nuevo
           </Button>
-          {TEMPLATES.map((tpl) => (
-            <Button key={tpl.id} variant="outline" onClick={() => create(tpl.create())} title={tpl.name}>
-              Plantilla Google Maps
-            </Button>
-          ))}
+          <select
+            aria-label="Crear desde plantilla"
+            value=""
+            onChange={(e) => {
+              const tpl = TEMPLATES.find((t) => t.id === e.target.value);
+              if (tpl) create(tpl.create());
+            }}
+            className="cursor-pointer rounded-xl border border-line bg-panel-2 px-3 py-2 text-sm text-white/85 outline-none hover:border-line-strong"
+          >
+            <option value="">Desde plantilla…</option>
+            {TEMPLATES.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>
+                {tpl.name}
+              </option>
+            ))}
+          </select>
           <Button variant="ghost" onClick={() => importInput.current?.click()} title="Abrir un proyecto descargado como .json">
             Importar
           </Button>
@@ -202,7 +214,8 @@ export function ProjectsDialog({
                       </button>
                     )}
                     <span className="mt-0.5 text-[11px] text-muted">
-                      {shown.slides.length} slides · {shown.format.replace("x", "×")} · {when(shown.updatedAt)}
+                      {shown.brief.category ? `${CATEGORIES[shown.brief.category].label} · ` : ""}
+                      {shown.slides.length} slides · {when(shown.updatedAt)}
                       {isCurrent && <span className="ml-1 text-accent">· abierto</span>}
                     </span>
                     <span className="flex-1" />

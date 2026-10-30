@@ -87,14 +87,26 @@ export const Slide = forwardRef<HTMLDivElement, SlideProps>(function Slide({ num
           overflow: "hidden",
         }}
       >
-        <div data-fit style={{ width: "100%", textAlign, display: "flex", flexDirection: "column", alignItems: crossAlign, gap: size(26) }}>
+        <div
+          data-fit
+          style={{
+            width: "100%",
+            textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: crossAlign,
+            gap: size(26),
+            // Sin visual, el texto se centra en el alto disponible para no dejar media página vacía.
+            ...(hasVisual ? {} : { flex: "1 1 auto", justifyContent: "center" }),
+          }}
+        >
           {slide.title && (
             <h2
               style={{
                 margin: 0,
                 fontFamily: t.titleFamily,
                 fontWeight: t.titleWeight,
-                fontSize: size(t.titleSize),
+                fontSize: size(t.titleSize * (hasVisual ? 1 : 1.15)),
                 lineHeight: 0.98,
                 letterSpacing: "-0.02em",
                 textTransform: t.upper ? "uppercase" : "none",

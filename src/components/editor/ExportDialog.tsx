@@ -68,7 +68,10 @@ export function ExportDialog({ project, currentId, onClose }: { project: Project
         const n = project.slides.indexOf(selected[i]) + 1;
         if (overflow) found.push({ number: n, text: "el contenido no entra completo en el área segura. Acortá el texto o quitá el visual." });
         else if (fit < 0.62) found.push({ number: n, text: `el texto se achicó al ${Math.round(fit * 100)} %. Conviene acortarlo.` });
-        const t = resolveTheme(project.design, selected[i]);
+        const s = selected[i];
+        const texts = [s.title, s.subtitle, s.body, ...Object.values(s.visual.props)].join(" ");
+        if (/\[[^\]]+\]/.test(texts)) found.push({ number: n, text: "tiene un texto [entre corchetes] para completar." });
+        const t = resolveTheme(project.design, s);
         if (contrastRatio(t.text, t.bg) < 4.5) found.push({ number: n, text: "el contraste entre texto y fondo es bajo." });
       });
       setIssues(found);

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "@/lib/types";
 import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
-import { rename, setPlan, setStage } from "@/lib/projectOps";
+import { rename, setBrief, setPlan, setStage } from "@/lib/projectOps";
 import { GENERATORS, getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
@@ -104,6 +104,7 @@ export function Editor({ initial }: { initial: Project }) {
   }, [apply, project.brief, project.design.imageStyle, project.slides, selectedSlide?.id]);
 
   const propose = useCallback(async () => {
+    if (!project.brief.category) return;
     if (project.slides.length && !confirm("Esto reemplaza los slides actuales por una propuesta nueva. ¿Seguimos? (Podés deshacer)")) return;
     setBusy(true);
     try {
@@ -284,7 +285,13 @@ export function Editor({ initial }: { initial: Project }) {
             <ConfigPanel project={project} apply={apply} />
           </div>
           <div className="sticky bottom-0 space-y-2 border-t border-line bg-panel/95 p-4 backdrop-blur">
-            <Button variant="primary" className="w-full py-3" onClick={propose} disabled={busy}>
+            <Button
+              variant="primary"
+              className="w-full py-3"
+              onClick={propose}
+              disabled={busy || !project.brief.category}
+              title={project.brief.category ? undefined : "Primero elegí el tipo de carrusel"}
+            >
               <IconSparkle /> {project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
             </Button>
             <p className="text-center text-[11px] leading-snug text-faint">
@@ -303,6 +310,7 @@ export function Editor({ initial }: { initial: Project }) {
               onPropose={propose}
               busy={busy}
               onLoadTemplate={startFromTemplate}
+              onCategory={(category) => apply(setBrief({ category }))}
             />}
           {project.stage === "plan" && <PlanView project={project} apply={apply} onRepropose={propose} />}
           {project.stage === "edit" && selectedSlide && (

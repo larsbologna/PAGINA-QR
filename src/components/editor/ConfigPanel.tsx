@@ -3,11 +3,14 @@ import type { Align, DesignConfig, ImageStyle, Project, Tone, VisualStyle } from
 import type { Recipe } from "@/lib/projectOps";
 import { setBrief, setDesign, setFormat, setSlideCount } from "@/lib/projectOps";
 import { PALETTES } from "@/lib/defaults";
+import { structureFor } from "@/lib/content/narrative";
 import { FONTS } from "@/lib/fonts";
 import { FORMATS } from "@/lib/formats";
 import { ColorInput, Section, Segmented, Select, Slider, TextArea, TextInput, Toggle } from "@/components/ui/controls";
 import { ContrastBadge } from "@/components/ui/ContrastBadge";
 import { DesignPresets } from "./DesignPresets";
+import { CategoryChips } from "./CategoryPicker";
+import { categoryOf } from "@/lib/content/categories";
 import { IconAlignCenter, IconAlignLeft, IconAlignRight, IconFrame, IconLayers, IconPalette, IconText } from "@/components/ui/icons";
 
 const TONES: { value: Tone; label: string }[] = [
@@ -35,24 +38,35 @@ const IMAGE_STYLES: { value: ImageStyle; label: string }[] = [
   { value: "fotos", label: "Fotografías" },
 ];
 
+function structureLabels(project: Project): string {
+  const roles = categoryOf(project.brief).roles;
+  const seen = new Set<string>();
+  return structureFor(10)
+    .map((r) => roles[r].label.toLowerCase())
+    .filter((l) => (seen.has(l) ? false : (seen.add(l), true)))
+    .join(", ");
+}
+
 export function ConfigPanel({ project, apply }: { project: Project; apply: (r: Recipe, key?: string) => void }) {
   const { brief, design } = project;
   const b = (key: keyof typeof brief) => (v: string) => apply(setBrief({ [key]: v }), `brief.${key}`);
   const d = <K extends keyof DesignConfig>(key: K, coalesce = false) => (v: DesignConfig[K]) =>
     apply(setDesign({ [key]: v } as Partial<DesignConfig>), coalesce ? `design.${key}` : undefined);
+  const fields = categoryOf(brief).fields;
   const activePalette = PALETTES.find((p) => p.background === design.background && p.accent === design.accent && p.text === design.text);
 
   return (
     <div>
       <Section title="Contenido" icon={<IconText />}>
-        <TextArea label="Temática del carrusel" rows={2} value={brief.topic} onChange={b("topic")} placeholder="Ej.: Cómo conseguir más reseñas en Google" />
-        <TextInput label="Nombre del negocio" value={brief.businessName} onChange={b("businessName")} placeholder="Ej.: Pizzería Don Tano" />
-        <TextInput label="Objetivo comercial" value={brief.goal} onChange={b("goal")} placeholder="Ej.: que me escriban por WhatsApp" />
-        <TextInput label="Público objetivo" value={brief.audience} onChange={b("audience")} placeholder="Ej.: dueños de locales gastronómicos" />
-        <TextArea label="Problema que resolvemos" rows={2} value={brief.problem} onChange={b("problem")} placeholder="Ej.: el local está vacío entre semana" />
-        <TextInput label="Beneficio principal" value={brief.benefit} onChange={b("benefit")} placeholder="Ej.: más clientes que llegan recomendados" />
-        <TextInput label="Servicio o producto" value={brief.offer} onChange={b("offer")} placeholder="Ej.: sistema de reseñas en 7 días" />
-        <TextInput label="Llamada a la acción" value={brief.cta} onChange={b("cta")} placeholder="Ej.: Escribí RESEÑAS y te paso la guía" />
+        <CategoryChips value={brief.category} onChange={(c) => apply(setBrief({ category: c }))} />
+        <TextArea label={fields.topic.label} rows={2} value={brief.topic} onChange={b("topic")} placeholder={fields.topic.placeholder} />
+        <TextInput label={fields.businessName.label} value={brief.businessName} onChange={b("businessName")} placeholder={fields.businessName.placeholder} />
+        <TextInput label={fields.goal.label} value={brief.goal} onChange={b("goal")} placeholder={fields.goal.placeholder} />
+        <TextInput label={fields.audience.label} value={brief.audience} onChange={b("audience")} placeholder={fields.audience.placeholder} />
+        <TextArea label={fields.problem.label} rows={2} value={brief.problem} onChange={b("problem")} placeholder={fields.problem.placeholder} />
+        <TextInput label={fields.benefit.label} value={brief.benefit} onChange={b("benefit")} placeholder={fields.benefit.placeholder} />
+        <TextInput label={fields.offer.label} value={brief.offer} onChange={b("offer")} placeholder={fields.offer.placeholder} />
+        <TextInput label={fields.cta.label} value={brief.cta} onChange={b("cta")} placeholder={fields.cta.placeholder} />
         <Select label="Tono" value={brief.tone} onChange={(v) => apply(setBrief({ tone: v }))} options={TONES} />
         <TextArea
           label="Instrucciones adicionales"
@@ -60,7 +74,7 @@ export function ConfigPanel({ project, apply }: { project: Project; apply: (r: R
           value={brief.extra}
           onChange={b("extra")}
           placeholder={"Notas libres. Para usar tus propios consejos, escribilos uno por línea:\n- QR en el local: en mesa o mostrador"}
-          hint="Las líneas que empiezan con guion o número se usan como consejos en la propuesta."
+          hint="Las líneas que empiezan con guion o número se usan como consejos (o prácticas, pasos, aprendizajes) en la propuesta."
         />
       </Section>
 
@@ -84,7 +98,7 @@ export function ConfigPanel({ project, apply }: { project: Project; apply: (r: R
         <p className="text-[11px] leading-snug text-faint">
           {project.slides.length
             ? "Con slides creados: al subir se agregan consejos antes del cierre; al bajar se quitan desde el final y el CTA se conserva."
-            : "Con 10 slides: gancho, problema, ejemplo, cómo funciona, argumento, 4 consejos y CTA. Con menos, se adapta."}
+            : `Con 10 slides: ${structureLabels(project)}. Con menos, se adapta.`}
         </p>
       </Section>
 
