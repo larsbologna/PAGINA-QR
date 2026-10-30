@@ -23,6 +23,7 @@
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.2",
     "next": "^16.4.3",
+    "qrcode-generator": "^1.4.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

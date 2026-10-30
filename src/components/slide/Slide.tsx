@@ -129,7 +129,7 @@ export const Slide = forwardRef<HTMLDivElement, SlideProps>(function Slide({ num
 
         {hasVisual && (
           <div style={{ flex: "1 1 0", minHeight: "var(--vmin)", width: "100%", position: "relative" }}>
-            <Visual visual={slide.visual} t={t} />
+            <Visual visual={slide.visual} t={t} d3={design.imageStyle === "3d"} />
           </div>
         )}
 

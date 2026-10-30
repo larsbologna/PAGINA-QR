@@ -7,12 +7,14 @@ import { GENERATORS, getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
 import { BriefIntro } from "./BriefIntro";
-import { FluidSlide } from "@/components/slide/ScaledSlide";
+import { Workspace } from "./Workspace";
+import { Inspector } from "./Inspector";
+import { buildSlide } from "@/lib/content/templateGenerator";
 import { Button } from "@/components/ui/controls";
 import { IconRedo, IconSparkle, IconUndo } from "@/components/ui/icons";
 import { UiAccentPicker } from "./UiAccentPicker";
 
-type MobileTab = "config" | "canvas";
+type MobileTab = "config" | "canvas" | "inspect";
 
 export function Editor() {
   const store = useProjectStore(() => createProject());
@@ -20,6 +22,21 @@ export function Editor() {
   const [tab, setTab] = useState<MobileTab>("config");
   const [busy, setBusy] = useState(false);
   const generator = getGenerator(GENERATORS[0].id);
+  const [selected, setSelected] = useState("");
+  // Si el slide seleccionado ya no existe (borrado, deshacer), se toma el primero.
+  const selectedSlide = project.slides.find((s) => s.id === selected) ?? project.slides[0];
+
+  const addSlide = useCallback(() => {
+    const fresh = buildSlide("tip", project.brief, project.design.imageStyle, project.slides.filter((s) => s.role === "tip").length);
+    apply((p) => {
+      if (p.slides.length >= 10) return p;
+      const at = p.slides.findIndex((s) => s.id === selectedSlide?.id) + 1 || p.slides.length;
+      const slides = [...p.slides];
+      slides.splice(at, 0, fresh);
+      return { ...p, slides, slideCount: slides.length };
+    });
+    setSelected(fresh.id);
+  }, [apply, project.brief, project.design.imageStyle, project.slides, selectedSlide?.id]);
 
   const propose = useCallback(async () => {
     if (project.slides.length && !confirm("Esto reemplaza los slides actuales por una propuesta nueva. ¿Seguimos? (Podés deshacer)")) return;
@@ -75,21 +92,23 @@ export function Editor() {
 
         <input
           aria-label="Nombre del proyecto"
+          title={project.name}
           value={project.name}
           onChange={(e) => apply(rename(e.target.value), "name")}
           className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm text-white/80 outline-none hover:border-line focus:border-accent/60 md:max-w-xs"
         />
 
-        <nav aria-label="Etapas" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Etapas" className="flex items-center gap-0.5 lg:gap-1">
           {steps.map((s, i) => {
             const reachable = i <= stepIndex || (s.id === "plan" && project.slides.length > 0) || (s.id === "edit" && project.slides.length > 0);
             return (
               <button
                 key={s.id}
+                title={s.label}
                 type="button"
                 disabled={!reachable}
                 onClick={() => apply(setStage(s.id))}
-                className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs transition disabled:opacity-30 ${
+                className={`flex items-center gap-2 rounded-full px-1.5 py-1 text-xs lg:px-3 transition disabled:opacity-30 ${
                   project.stage === s.id ? "bg-white/10 text-white" : "text-muted hover:text-white"
                 }`}
               >
@@ -100,7 +119,7 @@ export function Editor() {
                 >
                   {i + 1}
                 </span>
-                {s.label}
+                <span className="hidden lg:inline">{s.label}</span>
               </button>
             );
           })}
@@ -118,11 +137,12 @@ export function Editor() {
       </header>
 
       {/* Pestañas en pantallas chicas */}
-      <div className="flex shrink-0 border-b border-line bg-panel md:hidden" role="tablist">
+      <div className="flex shrink-0 border-b border-line bg-panel lg:hidden" role="tablist">
         {(
           [
             ["config", "Configurar"],
             ["canvas", project.stage === "plan" ? "Estructura" : "Slides"],
+            ...(project.stage === "edit" ? ([["inspect", "Editar slide"]] as const) : []),
           ] as const
         ).map(([id, label]) => (
           <button
@@ -139,7 +159,7 @@ export function Editor() {
 
       <div className="flex min-h-0 flex-1">
         {/* A. Panel de configuración */}
-        <aside className={`scroll-thin w-full shrink-0 flex-col overflow-y-auto border-r border-line bg-panel md:flex md:w-[340px] ${tab === "config" ? "flex" : "hidden"}`}>
+        <aside className={`scroll-thin w-full shrink-0 flex-col overflow-y-auto border-r border-line bg-panel lg:flex lg:w-[340px] ${tab === "config" ? "flex" : "hidden"}`}>
           <div className="flex-1">
             <ConfigPanel project={project} apply={apply} />
           </div>
@@ -154,27 +174,25 @@ export function Editor() {
         </aside>
 
         {/* B/C. Área de trabajo */}
-        <main className={`scroll-thin min-w-0 flex-1 overflow-y-auto md:block ${tab === "canvas" ? "block" : "hidden"}`}>
+        <main
+          className={`scroll-thin min-w-0 flex-1 lg:block ${project.stage === "edit" ? "overflow-hidden" : "overflow-y-auto"} ${tab === "canvas" ? "block" : "hidden"}`}
+        >
           {project.stage === "brief" && <BriefIntro project={project} generatorDescription={generator.description} onPropose={propose} busy={busy} />}
           {project.stage === "plan" && <PlanView project={project} apply={apply} onRepropose={propose} />}
-          {project.stage === "edit" && (
-            <div className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h1 className="font-display text-2xl font-bold">Slides</h1>
-                <Button variant="outline" onClick={() => apply(setStage("plan"))}>
-                  Volver a la estructura
-                </Button>
-              </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-                {project.slides.map((s, i) => (
-                  <div key={s.id} className="overflow-hidden rounded-xl border border-line">
-                    <FluidSlide number={i + 1} total={project.slides.length} slide={s} design={project.design} format={project.format} businessName={project.brief.businessName} />
-                  </div>
-                ))}
-              </div>
-            </div>
+          {project.stage === "edit" && selectedSlide && (
+            <Workspace project={project} apply={apply} selectedId={selectedSlide.id} onSelect={setSelected} onAdd={addSlide} />
           )}
         </main>
+
+        {/* B. Edición del slide seleccionado */}
+        {project.stage === "edit" && selectedSlide && (
+          <aside
+            className={`scroll-thin w-full shrink-0 overflow-y-auto border-l border-line bg-panel lg:block lg:w-[330px] ${tab === "inspect" ? "block" : "hidden"}`}
+            aria-label="Edición del slide"
+          >
+            <Inspector project={project} slide={selectedSlide} apply={apply} onSelect={setSelected} />
+          </aside>
+        )}
       </div>
     </div>
   );

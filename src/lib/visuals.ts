@@ -97,9 +97,9 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
     group: "General",
     fields: [
       { key: "label", label: "Texto junto al QR" },
-      { key: "seed", label: "Texto que codifica (ilustrativo)" },
+      { key: "seed", label: "Enlace que abre el QR (escaneable)" },
     ],
-    defaults: { label: "Escaneá y dejanos tu opinión", seed: "ejemplo" },
+    defaults: { label: "Escaneá y dejanos tu opinión", seed: "https://ejemplo.com" },
   },
   chat: {
     label: "Conversación de chat",
