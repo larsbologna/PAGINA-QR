@@ -7,6 +7,7 @@ import { FONTS } from "@/lib/fonts";
 import { FORMATS } from "@/lib/formats";
 import { ColorInput, Section, Segmented, Select, Slider, TextArea, TextInput, Toggle } from "@/components/ui/controls";
 import { ContrastBadge } from "@/components/ui/ContrastBadge";
+import { DesignPresets } from "./DesignPresets";
 import { IconAlignCenter, IconAlignLeft, IconAlignRight, IconFrame, IconLayers, IconPalette, IconText } from "@/components/ui/icons";
 
 const TONES: { value: Tone; label: string }[] = [
@@ -88,6 +89,7 @@ export function ConfigPanel({ project, apply }: { project: Project; apply: (r: R
       </Section>
 
       <Section title="Diseño" icon={<IconPalette />}>
+        <DesignPresets design={design} onApply={(saved) => apply(setDesign(saved))} />
         <div className="space-y-1.5">
           <div className="text-xs font-medium text-muted">Paletas rápidas</div>
           <div className="grid grid-cols-4 gap-2">

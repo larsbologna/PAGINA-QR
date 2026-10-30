@@ -79,7 +79,7 @@ export function BriefIntro({
                 <span className="block font-semibold">{tpl.name}</span>
                 <span className="mt-0.5 block text-xs text-muted">{tpl.description}</span>
               </span>
-              <span className="text-sm text-accent opacity-0 transition group-hover:opacity-100">Abrir →</span>
+              <span className="text-sm text-accent opacity-0 transition group-hover:opacity-100">Usar →</span>
             </button>
           ))}
         </div>

@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Project } from "@/lib/types";
+import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
-import { createGoogleMapsProject } from "@/data/templates/googleMaps";
 import { rename, setPlan, setStage } from "@/lib/projectOps";
 import { GENERATORS, getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
@@ -11,20 +12,82 @@ import { Workspace } from "./Workspace";
 import { Inspector } from "./Inspector";
 import { buildSlide } from "@/lib/content/templateGenerator";
 import { Button } from "@/components/ui/controls";
-import { IconDownload, IconRedo, IconSparkle, IconUndo } from "@/components/ui/icons";
+import { IconCheck, IconDownload, IconFolder, IconRedo, IconSparkle, IconUndo } from "@/components/ui/icons";
 import { UiAccentPicker } from "./UiAccentPicker";
 import { ExportDialog } from "./ExportDialog";
+import { ProjectsDialog } from "./ProjectsDialog";
 
 type MobileTab = "config" | "canvas" | "inspect";
 
-export function Editor() {
-  const store = useProjectStore(() => createGoogleMapsProject());
+type SaveState = { kind: "saved" } | { kind: "pending" } | { kind: "error"; message: string };
+
+export function Editor({ initial }: { initial: Project }) {
+  const store = useProjectStore(() => initial);
   const { project, apply, undo, redo, canUndo, canRedo, load } = store;
   const [tab, setTab] = useState<MobileTab>("config");
   const [busy, setBusy] = useState(false);
   const generator = getGenerator(GENERATORS[0].id);
   const [selected, setSelected] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+  const [save, setSave] = useState<SaveState>({ kind: "saved" });
+
+  // ——— Guardado automático (y manual con Ctrl/Cmd+S o el botón) ———
+  const latest = useRef(project);
+  latest.current = project;
+  const lastSaved = useRef<Project | null>(initial);
+
+  const flush = useCallback(async () => {
+    const p = latest.current;
+    if (lastSaved.current === p) return;
+    try {
+      await projects.save(p);
+      lastSaved.current = p;
+      setSave({ kind: "saved" });
+    } catch (e) {
+      setSave({ kind: "error", message: e instanceof StorageFullError ? e.message : "No se pudo guardar el proyecto." });
+      throw e;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (lastSaved.current === project) return;
+    setSave({ kind: "pending" });
+    const t = setTimeout(() => flush().catch(() => undefined), 700);
+    return () => clearTimeout(t);
+  }, [project, flush]);
+
+  useEffect(() => {
+    projects.setLastOpened(project.id);
+  }, [project.id]);
+
+  // Si se cierra la pestaña con cambios pendientes, se guardan igual.
+  useEffect(() => {
+    const onHide = () => {
+      if (lastSaved.current !== latest.current) projects.save(latest.current).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, []);
+
+  const openProject = useCallback(
+    (p: Project) => {
+      lastSaved.current = p;
+      load(p);
+      setSelected("");
+      setSave({ kind: "saved" });
+    },
+    [load],
+  );
+
+  const startFromTemplate = useCallback(
+    async (p: Project) => {
+      await flush().catch(() => undefined);
+      await projects.save(p).catch(() => undefined);
+      openProject(p);
+    },
+    [flush, openProject],
+  );
   // Si el slide seleccionado ya no existe (borrado, deshacer), se toma el primero.
   const selectedSlide = project.slides.find((s) => s.id === selected) ?? project.slides[0];
 
@@ -55,6 +118,11 @@ export function Editor() {
   // Atajos: Ctrl/Cmd+Z deshacer, Ctrl/Cmd+Shift+Z o Ctrl+Y rehacer (fuera de campos de texto).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        flush().catch(() => undefined);
+        return;
+      }
       const target = e.target as HTMLElement;
       if (target.closest("input, textarea, select, [contenteditable]")) return;
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -69,7 +137,7 @@ export function Editor() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
+  }, [undo, redo, flush]);
 
   const steps = [
     { id: "brief", label: "Brief" },
@@ -81,16 +149,20 @@ export function Editor() {
   return (
     <div className="flex h-dvh flex-col bg-bg text-white">
       {/* Barra superior */}
-      <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-line bg-panel/80 px-3 backdrop-blur md:px-4">
-        <div className="flex items-center gap-2">
+      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-panel/80 px-3 backdrop-blur sm:gap-3 md:px-4">
+        <div className="hidden items-center gap-2 sm:flex">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-ink shadow-[0_0_24px_-6px_var(--ui-accent)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <rect x="3" y="5" width="11" height="14" rx="2" />
               <path d="M17 7v10M21 9v6" />
             </svg>
           </span>
-          <span className="hidden font-display text-[15px] font-bold tracking-tight sm:block">Carrusel Studio</span>
+          <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">Carrusel Studio</span>
         </div>
+
+        <Button variant="outline" className="px-2.5 text-xs" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
+          <IconFolder /> <span className="hidden md:inline">Proyectos</span>
+        </Button>
 
         <input
           aria-label="Nombre del proyecto"
@@ -99,6 +171,28 @@ export function Editor() {
           onChange={(e) => apply(rename(e.target.value), "name")}
           className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm text-white/80 outline-none hover:border-line focus:border-accent/60 md:max-w-xs"
         />
+
+        <button
+          type="button"
+          onClick={() => flush().catch(() => undefined)}
+          title={save.kind === "error" ? save.message : "Guardar ahora (Ctrl+S)"}
+          aria-live="polite"
+          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition sm:flex ${
+            save.kind === "error" ? "bg-red-500/15 text-red-300" : "text-muted hover:bg-white/5 hover:text-white"
+          }`}
+        >
+          {save.kind === "saved" && (
+            <>
+              <IconCheck size={12} /> Guardado
+            </>
+          )}
+          {save.kind === "pending" && (
+            <>
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Guardando…
+            </>
+          )}
+          {save.kind === "error" && <>⚠ Sin guardar</>}
+        </button>
 
         <nav aria-label="Etapas" className="flex items-center gap-0.5 lg:gap-1">
           {steps.map((s, i) => {
@@ -146,6 +240,20 @@ export function Editor() {
           </Button>
         </div>
       </header>
+      {save.kind === "error" && (
+        <div role="alert" className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-center text-xs text-red-200">
+          {save.message}
+        </div>
+      )}
+      {showProjects && (
+        <ProjectsDialog
+          current={project}
+          flush={flush}
+          onOpen={openProject}
+          onRenameCurrent={(name) => apply(rename(name))}
+          onClose={() => setShowProjects(false)}
+        />
+      )}
       {exporting && <ExportDialog project={project} currentId={selectedSlide?.id} onClose={() => setExporting(false)} />}
 
       {/* Pestañas en pantallas chicas */}
@@ -194,11 +302,7 @@ export function Editor() {
               generatorDescription={generator.description}
               onPropose={propose}
               busy={busy}
-              onLoadTemplate={(p) => {
-                if (project.slides.length && !confirm("Se reemplaza el carrusel actual por la plantilla. ¿Seguimos?")) return;
-                load(p);
-                setSelected("");
-              }}
+              onLoadTemplate={startFromTemplate}
             />}
           {project.stage === "plan" && <PlanView project={project} apply={apply} onRepropose={propose} />}
           {project.stage === "edit" && selectedSlide && (
