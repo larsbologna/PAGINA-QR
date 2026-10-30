@@ -1,102 +1,67 @@
-# ReseñaQR
+# Carrusel Studio
 
-Reseñas y opiniones de clientes desde un QR físico, con un panel privado para gestionar la reputación del negocio.
+Generador de carruseles para Instagram: brief → propuesta de estructura → revisión → diseño slide por slide → exportación PNG/ZIP.
 
-> ReseñaQR no es un producto de Google ni importa las reseñas públicas de Google. Recibe opiniones privadas por el QR y, con 5 estrellas, lleva al cliente al enlace de reseñas del negocio para que, si quiere, publique la suya.
+Herramienta: **`/carousel-google-maps`** (la raíz `/` redirige ahí).
 
-- **Pantalla pública** (`…/?c=<negocio>`): el cliente puntúa de 1 a 5 estrellas sin registrarse.
-  - **5 estrellas:** se agradece, se registra la puntuación y se abre el enlace de reseñas de Google del negocio tras una breve cuenta regresiva (durante la cual se puede cambiar la puntuación). Si el navegador no redirige, queda un botón visible.
-  - **1 a 4 estrellas:** «¿Qué podríamos mejorar?», comentario opcional y envío. No se muestra ningún enlace ni botón a Google.
-  - La opinión interna nunca se publica en Google; la pantalla lo aclara.
-- **Panel privado** (`…/#/login`): resumen con datos reales (7 días, 30 días o todo), opiniones con filtros, nota interna con guardado automático, casilla «resuelta» y configuración del negocio.
+```bash
+npm install
+npm run dev        # http://localhost:3000/carousel-google-maps
+npm test           # pruebas unitarias
+npm run typecheck  # verificación de tipos
+npm run build      # compilación de producción (la misma que usa Vercel)
+```
 
-Clasificación única en todo el sistema: **1–2 negativas · 3 intermedia · 4–5 positivas**. Las opiniones de 1 a 4 estrellas quedan **pendientes** hasta que el negocio las marque como resueltas.
+Se despliega en Vercel sin configuración extra: importar el repositorio y aceptar los valores detectados (Next.js).
 
-El nombre y el logo están centralizados en `web/src/brand.js`; los colores, en `web/styles.css` (`:root`).
+## Cómo se usa
 
-## Arquitectura
+0. **Tipo de carrusel** (obligatorio antes de proponer): Negocios, Crecimiento personal, Motivación, Mi proceso o Hábitos y productividad. Cambia los nombres de los campos, el papel de cada slide, los textos base, los visuales sugeridos y el diseño por defecto (Negocios: oscuro y contundente; Crecimiento: editorial claro con serif; Motivación: frases grandes sobre aura violeta; Mi proceso: cálido y sobrio para fotos propias; Hábitos: claro y ordenado en azul). El diseño del tipo se aplica solo si no personalizaste el actual; si no, aparece "Usar el diseño de…" en la sección Diseño. En "Mi proceso" quedan textos `[entre corchetes]` para completar con tu historia; la exportación avisa si queda alguno.
+1. **Brief** (panel izquierdo): temática, negocio, objetivo, público, problema, beneficio, servicio, llamada a la acción, tono e instrucciones. Las líneas de las instrucciones que empiezan con `-` o un número se usan como consejos propios.
+2. **Proponer estructura**: arma de 1 a 10 slides con estructura narrativa (gancho, problema, ejemplo, cómo funciona, argumento, consejos, CTA).
+3. **Revisión**: se edita cada título, subtítulo, texto y visual. Nada pasa al diseño hasta tocar **Aprobar**.
+4. **Diseño**: lienzo con vista individual o de todos, zoom, área segura y márgenes; tira de miniaturas (arrastrar para reordenar); panel derecho para editar el slide seleccionado (textos, visual, imagen, alineación, colores, tamaños, duplicar, mover, eliminar).
+5. **EXPORTAR A PNG**: un ZIP o PNG individuales numerados, con la medida exacta (1080×1440 o 1080×1350).
 
-| Parte | Qué es |
+Atajos: `Ctrl/Cmd+Z` deshacer, `Ctrl/Cmd+Shift+Z` rehacer, `Ctrl/Cmd+S` guardar, flechas para cambiar de slide.
+En los textos, `*palabra*` se resalta con el color de acento.
+
+## Proyectos
+
+Se guardan solos en el navegador (localStorage), sin base de datos. Desde **Proyectos**: nuevo, abrir, duplicar, renombrar, eliminar, descargar copia `.json` e importar. Al volver se abre el último proyecto. En **Diseño → Mis diseños** se guardan combinaciones de colores, tipografías y tamaños para reutilizar.
+
+La primera vez se precarga el ejemplo **"Cómo las reseñas de Google Maps llenan tu local"** (10 slides, negocios). Plantillas disponibles: ese ejemplo y **"Lo que nadie te dice sobre la constancia"** (7 slides, crecimiento personal).
+
+## Exportación
+
+- Captura con `html-to-image` el mismo componente que se ve en el editor, con las fuentes incrustadas.
+- `public/export/<proyecto>/`: solo en local (`npm run dev`, o `ENABLE_LOCAL_EXPORT=1` con `npm start`). En Vercel queda desactivado porque el disco no es persistente; ahí se usan las descargas del navegador.
+
+## Estructura
+
+| Carpeta | Qué hay |
 |---|---|
-| `web/` | Web estática (JavaScript sin framework, empaquetada con esbuild). Se publica gratis en Firebase Hosting (`https://pagina-qr-b0703.web.app`). |
-| Firebase Authentication | Dueños con email y contraseña. Visitantes con sesión **anónima** (sin datos personales), usada solo para limitar envíos. |
-| Firestore | Datos de negocios y opiniones. |
-| `firestore.rules` | La seguridad real: validación de datos en el servidor, aislamiento entre negocios, límite de 1 opinión cada 30 s por visitante, notas privadas, puntuación inalterable. |
-| `#/admin` | Panel de superadministrador: alta, limpieza, suspensión y eliminación de negocios. |
-| `tools/crear-negocio.mjs` | Crea la cuenta de superadministrador (y también negocios) con el Admin SDK. |
+| `src/app/carousel-google-maps/` | Página de la herramienta. |
+| `src/app/api/export/` | Guardado local en `public/export` (desactivado en producción). |
+| `src/lib/types.ts` | Modelo de datos: proyecto, brief, diseño, slides. |
+| `src/lib/formats.ts` | Formatos y márgenes de seguridad (50 px laterales, 180 px arriba y abajo). |
+| `src/lib/content/` | Estructura narrativa y generación de contenido. |
+| `src/lib/projectOps.ts`, `src/lib/store.ts` | Operaciones sobre el proyecto e historial. |
+| `src/lib/storage/` | Persistencia (interfaces + implementación localStorage). |
+| `src/lib/export/` | Captura PNG, ZIP y descargas. |
+| `src/components/slide/` | `<Slide number={...} />` a tamaño real, decoraciones y ajuste automático del texto. |
+| `src/components/visuals/` | Visuales en SVG/CSS: generales y de Google Maps. |
+| `src/components/editor/` | Interfaz del editor. |
+| `src/data/templates/` | Plantillas precargadas. |
 
-Modelo: `admins/{uid}` (superadministradores), `businesses/{slug}` (perfil público), `businesses/{slug}/feedback/{id}` (opiniones), `access/{slug}` (dueños), `throttle/{uid}` (límite de envíos).
+## Contenido sin IA
 
-## Puesta en marcha
+No hay ninguna API de IA configurada: la propuesta se arma con plantillas a partir del brief, y la interfaz lo indica. Para sumar IA, implementar `ContentGenerator` (`src/lib/content/generator.ts`), idealmente llamando a una ruta del servidor que tenga la clave en una variable de entorno, y registrarlo en `src/lib/content/providers.ts`.
 
-### 1. Firebase (plan gratuito Spark)
+## Almacenamiento en la nube (a futuro)
 
-1. <https://console.firebase.google.com> → **Agregar proyecto**.
-2. **Authentication → Método de acceso**: habilitá **Correo electrónico/contraseña** y **Anónimo**.
-3. **Firestore Database → Crear base de datos** (modo producción, ubicación `southamerica-east1`).
-4. Firestore → **Reglas**: pegá `firestore.rules` y **Publicar** (o `npx firebase deploy --only firestore:rules`).
-5. **Configuración del proyecto → Tus apps → Web**: copiá `apiKey`, `authDomain`, `projectId` y `appId` en `web/firebase-config.js`. No son secretos.
-6. **Authentication → Configuración → Dominios autorizados**: agregá el dominio donde se publique la web.
+`src/lib/storage/types.ts` define `ProjectRepository` y `PresetRepository`. Para guardar en la nube, implementarlas contra una API y cambiar las instancias en `src/lib/storage/index.ts`.
 
-Sin el paso 5, la web muestra un aviso de configuración pendiente: no simula datos.
+## Proyecto anterior (ReseñaQR)
 
-### 2. Publicar en Firebase Hosting (gratis, permite uso comercial)
-
-1. En la consola de Firebase: **Compilación → Hosting → Comenzar** (solo hace falta avanzar el asistente; no ejecutes los comandos que muestra).
-2. En la carpeta del proyecto, una sola vez: `npx firebase login` (abre el navegador para entrar con tu cuenta de Google).
-3. Para publicar (la primera vez y después de cada cambio): `npm run publicar`. Publica la web y también las reglas de `firestore.rules`.
-
-La web queda en `https://pagina-qr-b0703.web.app`. Los QR deben apuntar a `https://pagina-qr-b0703.web.app/?c=<negocio>`.
-
-La dirección vieja de GitHub Pages (`…github.io/PAGINA-QR/`) queda como redirección automática a la nueva, así que los QR impresos con ella siguen funcionando. No la desactives en GitHub.
-
-### 3. Crear tu cuenta de superadministrador (una sola vez)
-
-Descargá la clave de servicio (**Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada**). Guardala fuera del repositorio: da acceso total.
-
-```bash
-npm install
-npm run negocio:crear -- --clave C:\ruta\clave.json --superadmin --email vos@ejemplo.com --password "una-clave-larga"
-```
-
-Después volvé a publicar las reglas de `firestore.rules` en Firebase (incluyen los permisos del superadministrador).
-
-### 4. Gestionar negocios desde la web
-
-Entrá a `…/#/login` con tu cuenta: vas directo al panel **Superadmin** (`…/#/admin`), donde podés:
-
-- **Nuevo negocio:** nombre, identificador del QR, rubro, enlace de Google y email del dueño. Crea su pantalla, su panel y la cuenta del dueño, y te muestra los datos para pasarle.
-- **Abrir panel** de cualquier negocio (por ejemplo, para cargarle el logo).
-- **Borrar opiniones:** deja el negocio limpio (por ejemplo, después de una demostración) y conserva el logo, el enlace y el dueño.
-- **Suspender / Activar** la pantalla del QR (por ejemplo, si no paga).
-- **Eliminar** el negocio con todas sus opiniones.
-- **Enviar email de nueva contraseña** al dueño.
-
-La herramienta de consola sigue disponible: `npm run negocio:crear -- --clave … --slug … --nombre … --email …` (y `--suspender` / `--activar`).
-
-## Desarrollo y pruebas
-
-```bash
-npm install
-npm run serve        # arma web/dist y la sirve en http://localhost:4173
-npm test             # reglas + recorridos en navegador contra los emuladores de Firebase (requiere Java 21)
-npm run test:rules   # solo reglas de Firestore
-```
-
-Las pruebas cubren:
-
-- Las puntuaciones de 1 a 5: el acceso a Google existe solo con 5 estrellas y desaparece al cambiar de 5 a 4.
-- Doble toque sin duplicados, reintentos idempotentes y límite de envíos.
-- Datos inválidos rechazados por el servidor.
-- Nota y estado que persisten al recargar.
-- Filtros, gráficos y tooltip.
-- Cambio del enlace de Google reflejado en la pantalla pública.
-- Aislamiento entre negocios y rutas privadas protegidas.
-- Vista en celular sin scroll horizontal.
-
-## Límites y costos
-
-- Firestore gratuito: 50.000 lecturas y 20.000 escrituras por día. El panel lee todas las opiniones del negocio al abrirse, así que alcanza de sobra para negocios chicos y medianos.
-- Almacenamiento gratuito: 1 GB. Una opinión ocupa menos de 1 KB y un logo unos 30 a 100 KB: entran cientos de negocios y cientos de miles de opiniones. Si se supera, el plan Blaze cobra solo el excedente.
-- Contra el spam, las reglas limitan cada sesión a 1 opinión cada 30 s, y Firebase limita la creación de sesiones anónimas por IP. Para más protección, activá **App Check** (reCAPTCHA) en Firebase.
-- Recuperar la contraseña usa el email de Firebase Authentication (gratis).
+El código de ReseñaQR quedó en la rama `resenaqr-archivo`. En este proyecto solo se conserva `web/redirect` y `.github/workflows/pages.yml`: la redirección de GitHub Pages que mantiene funcionando los QR impresos. No borrarlos.
