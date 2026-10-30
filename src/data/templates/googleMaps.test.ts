@@ -39,6 +39,11 @@ describe("plantilla Google Maps", () => {
     expect(p.slides[1].visual.props).toMatchObject({ aRating: "3.8", aCount: "12", bRating: "4.9", bCount: "127" });
   });
 
+  it("usa un nombre de negocio neutro", () => {
+    expect(p.brief.businessName).toBe("Tu Agencia");
+    expect(JSON.stringify(p)).not.toContain("Presence Web");
+  });
+
   it("cada proyecto nuevo tiene ids propios", () => {
     const q = createGoogleMapsProject();
     expect(q.id).not.toBe(p.id);

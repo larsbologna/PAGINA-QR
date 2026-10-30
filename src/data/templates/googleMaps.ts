@@ -73,7 +73,7 @@ export function createGoogleMapsProject(): Project {
       r3: "Volvemos seguro",
       r4: "Lindo lugar y buena atención",
     }),
-    s("cta", "¿Armamos tu sistema en *7 días*?", "Escribí *MAPS* y te paso la plantilla.", "Presence Web · Llenamos locales, no vendemos humo", "cta-button", {
+    s("cta", "¿Armamos tu sistema en *7 días*?", "Escribí *MAPS* y te paso la plantilla.", "Tu Agencia · Llenamos locales, no vendemos humo", "cta-button", {
       label: "Escribí MAPS",
       handle: "",
     }),
@@ -85,7 +85,7 @@ export function createGoogleMapsProject(): Project {
     brief: {
       ...base.brief,
       topic: GOOGLE_MAPS_TEMPLATE_NAME,
-      businessName: "Presence Web",
+      businessName: "Tu Agencia",
       goal: "Que los dueños de locales nos escriban para armar su sistema de reseñas",
       audience: "Dueños de locales gastronómicos y comercios de barrio",
       problem: "El local tiene buen producto pero pocas reseñas y pierde clientes frente a la competencia",
