@@ -56,5 +56,6 @@ export function normalizeProject(raw: unknown): Project | null {
     format,
     slideCount: slides.length || (typeof raw.slideCount === "number" ? Math.min(10, Math.max(1, raw.slideCount)) : 10),
     slides,
+    proposalVersion: typeof raw.proposalVersion === "number" && raw.proposalVersion >= 0 ? Math.floor(raw.proposalVersion) : 0,
   };
 }

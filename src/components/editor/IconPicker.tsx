@@ -1,4 +1,5 @@
 "use client";
+import { Portal } from "@/components/ui/Portal";
 import { useEffect, useRef, useState } from "react";
 import { iconPreview, iconValue, searchIcons, type IconHit } from "@/lib/icons";
 import { IconGlyph } from "@/components/visuals/IconGlyph";
@@ -49,7 +50,7 @@ export function IconPicker({ label, value, onChange }: { label: string; value: s
   );
 }
 
-export function IconSearchDialog({ onPick, onClose }: { onPick: (value: string) => void; onClose: () => void }) {
+function IconSearchDialogContent({ onPick, onClose }: { onPick: (value: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<IconHit[] | null>(null);
   const [error, setError] = useState("");
@@ -133,5 +134,13 @@ export function IconSearchDialog({ onPick, onClose }: { onPick: (value: string) 
         </div>
       </div>
     </div>
+  );
+}
+
+export function IconSearchDialog(props: { onPick: (value: string) => void; onClose: () => void }) {
+  return (
+    <Portal>
+      <IconSearchDialogContent {...props} />
+    </Portal>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Portal } from "@/components/ui/Portal";
 import { useEffect, useMemo, useState } from "react";
 import type { VisualKind } from "@/lib/types";
 import { VISUALS, VISUAL_GROUPS, makeVisual, type VisualGroup } from "@/lib/visuals";
@@ -8,7 +9,7 @@ import { Visual } from "@/components/visuals/Visual";
 const KINDS = Object.keys(VISUALS) as VisualKind[];
 
 /** Galería con vista previa real de cada visual, en los colores del slide. */
-export function VisualPickerDialog({ current, theme, onPick, onClose }: { current: VisualKind; theme: SlideTheme; onPick: (k: VisualKind) => void; onClose: () => void }) {
+function VisualPickerDialogContent({ current, theme, onPick, onClose }: { current: VisualKind; theme: SlideTheme; onPick: (k: VisualKind) => void; onClose: () => void }) {
   const [group, setGroup] = useState<VisualGroup | "Todos">("Todos");
   const [query, setQuery] = useState("");
 
@@ -80,5 +81,13 @@ export function VisualPickerDialog({ current, theme, onPick, onClose }: { curren
         </div>
       </div>
     </div>
+  );
+}
+
+export function VisualPickerDialog(props: { current: VisualKind; theme: SlideTheme; onPick: (k: VisualKind) => void; onClose: () => void }) {
+  return (
+    <Portal>
+      <VisualPickerDialogContent {...props} />
+    </Portal>
   );
 }

@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "@/lib/types";
 import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
-import { chooseCategory, rename, setPlan, setStage } from "@/lib/projectOps";
+import { applyProposal, chooseCategory, rename, setStage } from "@/lib/projectOps";
+import { isStockDesign, lookFor } from "@/lib/content/categoryDesigns";
+import { variationName } from "@/lib/content/variations";
 import { getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
@@ -118,21 +120,40 @@ export function Editor({ initial, session }: { initial: Project; session?: Sessi
     setSelected(fresh.id);
   }, [apply, project.brief, project.design.imageStyle, project.slides, selectedSlide?.id]);
 
+  const [versionNote, setVersionNote] = useState("");
+
   const propose = useCallback(async () => {
     if (!project.brief.category) return;
-    if (project.slides.length && !confirm("Esto reemplaza los slides actuales por una propuesta nueva. ¿Seguimos? (Podés deshacer)")) return;
+    const again = project.slides.length > 0;
+    if (again && !confirm("Se arma otra versión del carrusel, con otro diseño, otros visuales y otros textos. ¿Seguimos? (Podés deshacer)")) return;
+    // Cada nueva propuesta es la versión siguiente: cambia enfoque, visuales y diseño.
+    const version = again ? (project.proposalVersion ?? 0) + 1 : 0;
+    const stock = isStockDesign(project.design);
+    const look = lookFor(project.brief.category, version);
+    const imageStyle = stock ? look.design.imageStyle : project.design.imageStyle;
     setBusy(true);
     setProposeError("");
     try {
-      const slides = await generator.generatePlan({ brief: project.brief, count: project.slideCount, imageStyle: project.design.imageStyle });
-      apply(setPlan(slides));
+      const slides = await generator.generatePlan({
+        brief: project.brief,
+        count: project.slideCount,
+        imageStyle,
+        version,
+        previousTitles: project.slides.map((s) => s.title),
+      });
+      apply(applyProposal(slides, version));
+      setVersionNote(
+        again
+          ? `Versión ${version + 1}: ${variationName(version)}${stock ? ` · diseño ${look.name}` : " · se mantuvo tu diseño"}`
+          : "",
+      );
       setTab("canvas");
     } catch (e) {
       setProposeError(e instanceof Error ? e.message : "No se pudo armar la propuesta.");
     } finally {
       setBusy(false);
     }
-  }, [apply, generator, project.brief, project.design.imageStyle, project.slideCount, project.slides.length]);
+  }, [apply, generator, project.brief, project.design, project.slideCount, project.slides, project.proposalVersion]);
 
   // Atajos: Ctrl/Cmd+Z deshacer, Ctrl/Cmd+Shift+Z o Ctrl+Y rehacer (fuera de campos de texto).
   useEffect(() => {
@@ -332,7 +353,7 @@ export function Editor({ initial, session }: { initial: Project; session?: Sessi
               disabled={busy || !project.brief.category}
               title={project.brief.category ? undefined : "Primero elegí el tipo de carrusel"}
             >
-              <IconSparkle /> {busy ? (generator.id === "ai" ? "Escribiendo con IA…" : "Armando…") : project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
+              <IconSparkle /> {busy ? (generator.id === "ai" ? "Escribiendo con IA…" : "Armando…") : project.slides.length ? "Proponer otra versión" : "Proponer estructura"}
             </Button>
             {aiReady ? (
               <div className="flex rounded-xl border border-line bg-bg p-0.5 text-[11px]" role="radiogroup" aria-label="Fuente de la propuesta">
@@ -362,6 +383,7 @@ export function Editor({ initial, session }: { initial: Project; session?: Sessi
                 </button>
               </p>
             )}
+            {versionNote && <p className="rounded-lg bg-accent/10 p-2 text-center text-[11px] text-accent">{versionNote}</p>}
             {proposeError && <p className="rounded-lg bg-red-500/10 p-2 text-center text-[11px] text-red-300">{proposeError}</p>}
           </div>
         </aside>

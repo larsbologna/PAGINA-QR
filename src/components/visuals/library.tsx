@@ -189,23 +189,26 @@ export function SvgVisual({ p, t }: VisualProps) {
   const clean = p.svg ? sanitizeSvg(p.svg) : "";
   if (!clean) {
     return (
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 36,
-          border: `3px dashed ${withAlpha(t.text, 0.2)}`,
-          display: "grid",
-          placeItems: "center",
-          textAlign: "center",
-          padding: 40,
-          color: withAlpha(t.text, 0.5),
-          fontFamily: t.bodyFamily,
-          fontSize: 30,
-        }}
-      >
-        Creá el dibujo con IA o pegá un SVG desde el panel del slide
-      </div>
+      <FitBox w={800} h={480}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 36,
+            border: `3px dashed ${withAlpha(t.text, 0.2)}`,
+            display: "grid",
+            placeItems: "center",
+            textAlign: "center",
+            padding: 50,
+            color: withAlpha(t.text, 0.5),
+            fontFamily: t.bodyFamily,
+            fontSize: 36,
+            lineHeight: 1.3,
+          }}
+        >
+          Creá el dibujo con IA o pegá un SVG desde el panel del slide
+        </div>
+      </FitBox>
     );
   }
   // El SVG ya saneado se escala solo con su viewBox.
@@ -733,8 +736,8 @@ export function StickyNotesVisual({ p, t }: VisualProps) {
   const cols = notes.length > 4 ? 3 : 2;
   const rows = Math.ceil(notes.length / cols);
   return (
-    <FitBox w={960} h={rows * 330}>
-      <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: 300, gap: 30, padding: 10 }}>
+    <FitBox w={960} h={rows * 330 + 30}>
+      <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: 300, gap: 30, padding: "34px 24px 24px" }}>
         {notes.map((n, i) => (
           <div
             key={i}

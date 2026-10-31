@@ -58,7 +58,7 @@ export function PlanView({
           </p>
         </div>
         <Button variant="outline" onClick={onRepropose}>
-          <IconRefresh /> Volver a proponer
+          <IconRefresh /> Proponer otra versión
         </Button>
       </div>
 
