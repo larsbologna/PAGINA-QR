@@ -1,8 +1,9 @@
-name: Redirección (GitHub Pages)
+name: GitHub Pages
 
-# La web real se publica en Firebase Hosting (npm run publicar). La dirección de
-# GitHub Pages queda solo como redirección, para que los QR impresos con ella
-# sigan funcionando: …github.io/PAGINA-QR/?c=negocio → pagina-qr-b0703.web.app/?c=negocio
+# Publica en https://larsbologna.github.io/PAGINA-QR/
+#   /                       → redirección de los QR impresos de ReseñaQR (web/redirect):
+#                             …github.io/PAGINA-QR/?c=negocio → pagina-qr-b0703.web.app/?c=negocio
+#   /carousel-google-maps/  → Carrusel Studio (exportación estática de Next.js)
 on:
   push:
     branches: [main]
@@ -22,15 +23,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # La ruta /api/export (guardar en public/export) solo sirve en local y no
+      # existe en un sitio estático: se quita antes de compilar.
+      - run: rm -rf src/app/api
+      - run: npm run build
+        env:
+          GITHUB_PAGES: "1"
+      - name: Armar el sitio
+        run: |
+          mkdir -p site
+          cp -r out/. site/
+          # La raíz queda con la redirección de los QR (pisa cualquier index de Next).
+          cp -r web/redirect/. site/
+          touch site/.nojekyll
+          test -f site/carousel-google-maps/index.html
+          grep -q "pagina-qr-b0703.web.app" site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web/redirect
+          path: site
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}carousel-google-maps/
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
