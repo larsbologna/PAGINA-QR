@@ -160,7 +160,7 @@ export function Editor({ initial }: { initial: Project }) {
   return (
     <div className="flex h-dvh flex-col bg-bg text-white">
       {/* Barra superior */}
-      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-panel/80 px-3 backdrop-blur sm:gap-3 md:px-4">
+      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-panel/80 px-2 backdrop-blur sm:gap-3 sm:px-3 md:px-4">
         <div className="hidden items-center gap-2 sm:flex">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-ink shadow-[0_0_24px_-6px_var(--ui-accent)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -171,8 +171,8 @@ export function Editor({ initial }: { initial: Project }) {
           <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">Carrusel Studio</span>
         </div>
 
-        <Button variant="outline" className="px-2.5 text-xs" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
-          <IconFolder /> <span className="hidden md:inline">Proyectos</span>
+        <Button variant="outline" className="px-2 text-xs sm:px-2.5" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
+          <IconFolder /> <span className="hidden lg:inline">Proyectos</span>
         </Button>
 
         <input
@@ -215,7 +215,7 @@ export function Editor({ initial }: { initial: Project }) {
                 type="button"
                 disabled={!reachable}
                 onClick={() => apply(setStage(s.id))}
-                className={`flex items-center gap-2 rounded-full px-1.5 py-1 text-xs lg:px-3 transition disabled:opacity-30 ${
+                className={`flex items-center gap-2 rounded-full px-1 py-1 text-xs sm:px-1.5 lg:px-3 transition disabled:opacity-30 ${
                   project.stage === s.id ? "bg-white/10 text-white" : "text-muted hover:text-white"
                 }`}
               >
@@ -233,29 +233,31 @@ export function Editor({ initial }: { initial: Project }) {
         </nav>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" className="px-2" aria-label="Deshacer" title="Deshacer (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+          <Button variant="ghost" className="px-1.5 sm:px-2" aria-label="Deshacer" title="Deshacer (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
             <IconUndo />
           </Button>
-          <Button variant="ghost" className="px-2" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
+          <Button variant="ghost" className="px-1.5 sm:px-2" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
             <IconRedo />
           </Button>
+          <span className="hidden min-[380px]:contents">
           <Button
-            variant="ghost"
-            className={`px-2 text-xs ${aiReady ? "text-accent" : ""}`}
-            onClick={() => setAiOpen(true)}
-            title={aiReady ? "IA activada con tu clave" : "Activar IA (opcional, con tu clave)"}
-          >
-            <IconSparkle /> <span className="hidden md:inline">IA</span>
-          </Button>
+              variant="ghost"
+              className={`px-2 text-xs ${aiReady ? "text-accent" : ""}`}
+              onClick={() => setAiOpen(true)}
+              title={aiReady ? "IA activada con tu clave" : "Activar IA (opcional, con tu clave)"}
+            >
+              <IconSparkle /> <span className="hidden lg:inline">IA</span>
+            </Button>
+          </span>
           <UiAccentPicker />
           <Button
             variant="primary"
-            className="ml-1 px-3 text-xs tracking-wide sm:ml-2 sm:px-4"
+            className="ml-0.5 px-2 text-xs tracking-wide sm:ml-2 sm:px-4"
             onClick={() => setExporting(true)}
             disabled={!project.slides.length}
             title={project.slides.length ? "Exportar los slides como PNG" : "Primero generá la estructura"}
           >
-            <IconDownload /> <span className="hidden sm:inline">EXPORTAR A PNG</span>
+            <IconDownload /> <span className="hidden xl:inline">EXPORTAR A PNG</span>
           </Button>
         </div>
       </header>

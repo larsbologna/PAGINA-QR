@@ -41,7 +41,7 @@ export function UiAccentPicker() {
   };
 
   return (
-    <div className="ml-1 hidden items-center gap-1 rounded-full border border-line bg-bg p-1 sm:flex" role="radiogroup" aria-label="Acento de la interfaz">
+    <div className="ml-1 hidden items-center gap-1 rounded-full border border-line bg-bg p-1 xl:flex" role="radiogroup" aria-label="Acento de la interfaz">
       {ACCENTS.map((a) => (
         <button
           key={a.id}
