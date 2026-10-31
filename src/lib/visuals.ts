@@ -1,4 +1,5 @@
 import type { ImageStyle, SlideRole, Visual, VisualKind } from "./types";
+import { DEFAULT_ICONS } from "./defaultIcons";
 
 // Catálogo de visuales: qué textos editables tiene cada uno y sus valores iniciales.
 // La parte gráfica de cada visual está en components/visuals.
@@ -7,11 +8,48 @@ export interface VisualField {
   key: string;
   label: string;
   multiline?: boolean;
+  /** icon: buscador de íconos · items: lista de tarjetas · select: opciones fijas · svg: dibujo propio. */
+  type?: "icon" | "items" | "select" | "svg";
+  options?: { value: string; label: string }[];
+  hint?: string;
 }
+
+export const VISUAL_GROUPS = [
+  "Personalizados",
+  "Datos y gráficos",
+  "Diagramas",
+  "Listas y comparaciones",
+  "Interfaces y mockups",
+  "Imágenes",
+  "Google Maps",
+] as const;
+
+export type VisualGroup = (typeof VISUAL_GROUPS)[number];
+
+/** Ítem del visual "Bloques": ícono + título + texto. Se guarda como JSON en props.items. */
+export interface BlockItem {
+  icon: string;
+  title: string;
+  text: string;
+}
+
+export function parseItems(value: string | undefined): BlockItem[] {
+  try {
+    const arr = JSON.parse(value ?? "[]");
+    return Array.isArray(arr)
+      ? arr.slice(0, 8).map((x) => ({ icon: String(x?.icon ?? ""), title: String(x?.title ?? ""), text: String(x?.text ?? "") }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+const I = DEFAULT_ICONS;
+const items = (list: [string, string, string][]) => JSON.stringify(list.map(([icon, title, text]) => ({ icon, title, text })));
 
 export interface VisualSpec {
   label: string;
-  group: "General" | "Google Maps";
+  group: VisualGroup;
   fields: VisualField[];
   defaults: Record<string, string>;
   /** Necesita una imagen subida para lucirse. */
@@ -19,17 +57,17 @@ export interface VisualSpec {
 }
 
 export const VISUALS: Record<VisualKind, VisualSpec> = {
-  none: { label: "Sin visual", group: "General", fields: [], defaults: {} },
+  none: { label: "Sin visual", group: "Personalizados", fields: [], defaults: {} },
   photo: {
     label: "Fotografía integrada",
-    group: "General",
+    group: "Imágenes",
     usesImage: true,
     fields: [{ key: "caption", label: "Epígrafe" }],
     defaults: { caption: "" },
   },
   phone: {
     label: "Mockup de teléfono",
-    group: "General",
+    group: "Interfaces y mockups",
     usesImage: true,
     fields: [
       { key: "app", label: "Nombre en pantalla" },
@@ -41,7 +79,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   stats: {
     label: "Gráfico de barras",
-    group: "General",
+    group: "Datos y gráficos",
     fields: [
       { key: "title", label: "Título del gráfico" },
       { key: "labels", label: "Etiquetas (separadas por coma)" },
@@ -52,7 +90,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   steps: {
     label: "Diagrama de pasos",
-    group: "General",
+    group: "Diagramas",
     fields: [
       { key: "s1", label: "Paso 1" },
       { key: "s2", label: "Paso 2" },
@@ -63,7 +101,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   comparison: {
     label: "Comparativa",
-    group: "General",
+    group: "Listas y comparaciones",
     fields: [
       { key: "leftTitle", label: "Título izquierda" },
       { key: "left", label: "Puntos izquierda (uno por línea)", multiline: true },
@@ -79,13 +117,13 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   checklist: {
     label: "Lista con checks",
-    group: "General",
+    group: "Listas y comparaciones",
     fields: [{ key: "items", label: "Ítems (uno por línea)", multiline: true }],
     defaults: { items: "Primer punto\nSegundo punto\nTercer punto" },
   },
   quote: {
     label: "Cita destacada",
-    group: "General",
+    group: "Listas y comparaciones",
     fields: [
       { key: "text", label: "Cita", multiline: true },
       { key: "author", label: "Autor" },
@@ -94,7 +132,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   qr: {
     label: "Código QR",
-    group: "General",
+    group: "Interfaces y mockups",
     fields: [
       { key: "label", label: "Texto junto al QR" },
       { key: "seed", label: "Enlace que abre el QR (escaneable)" },
@@ -103,7 +141,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   chat: {
     label: "Conversación de chat",
-    group: "General",
+    group: "Interfaces y mockups",
     fields: [
       { key: "name", label: "Nombre del contacto" },
       { key: "m1", label: "Mensaje del negocio", multiline: true },
@@ -114,7 +152,7 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   review: {
     label: "Tarjeta de reseña",
-    group: "General",
+    group: "Interfaces y mockups",
     fields: [
       { key: "author", label: "Autor" },
       { key: "stars", label: "Estrellas (1 a 5)" },
@@ -124,12 +162,247 @@ export const VISUALS: Record<VisualKind, VisualSpec> = {
   },
   "cta-button": {
     label: "Botón de llamada a la acción",
-    group: "General",
+    group: "Interfaces y mockups",
     fields: [
       { key: "label", label: "Texto del botón" },
       { key: "handle", label: "Usuario o contacto" },
     ],
     defaults: { label: "Escribime", handle: "" },
+  },
+  blocks: {
+    label: "Bloques con íconos (armalo vos)",
+    group: "Personalizados",
+    fields: [
+      { key: "items", label: "Bloques", type: "items" },
+      {
+        key: "layout",
+        label: "Disposición",
+        type: "select",
+        options: [
+          { value: "grid2", label: "Grilla de 2 columnas" },
+          { value: "grid3", label: "Grilla de 3 columnas" },
+          { value: "row", label: "En fila" },
+          { value: "column", label: "En columna" },
+          { value: "hero", label: "Uno grande y el resto en lista" },
+        ],
+      },
+      {
+        key: "style",
+        label: "Estilo",
+        type: "select",
+        options: [
+          { value: "cards", label: "Tarjetas" },
+          { value: "outline", label: "Contorno" },
+          { value: "circles", label: "Íconos en círculo, sin tarjeta" },
+          { value: "plain", label: "Solo ícono y texto" },
+        ],
+      },
+      {
+        key: "connector",
+        label: "Conexión entre bloques",
+        type: "select",
+        options: [
+          { value: "none", label: "Ninguna" },
+          { value: "arrows", label: "Flechas" },
+          { value: "numbers", label: "Numerados" },
+        ],
+      },
+    ],
+    defaults: {
+      items: items([
+        [I.target, "Claridad", "Sabés a dónde vas"],
+        [I.flame, "Constancia", "Un poco todos los días"],
+        [I["trending-up"], "Progreso", "Medís y ajustás"],
+        [I.trophy, "Resultado", "Llega solo"],
+      ]),
+      layout: "grid2",
+      style: "cards",
+      connector: "none",
+    },
+  },
+  "icon-hero": {
+    label: "Ícono grande",
+    group: "Personalizados",
+    fields: [
+      { key: "icon", label: "Ícono", type: "icon" },
+      { key: "caption", label: "Texto debajo (opcional)" },
+      {
+        key: "shape",
+        label: "Forma",
+        type: "select",
+        options: [
+          { value: "circle", label: "Círculo" },
+          { value: "square", label: "Cuadrado redondeado" },
+          { value: "plain", label: "Sin fondo" },
+        ],
+      },
+    ],
+    defaults: { icon: I.rocket, caption: "", shape: "circle" },
+  },
+  svg: {
+    label: "Dibujo propio (IA o SVG)",
+    group: "Personalizados",
+    fields: [{ key: "svg", label: "Dibujo", type: "svg" }],
+    defaults: { svg: "" },
+  },
+  "big-number": {
+    label: "Número destacado",
+    group: "Datos y gráficos",
+    fields: [
+      { key: "value", label: "Número o dato" },
+      { key: "label", label: "Qué significa" },
+      { key: "note", label: "Nota o fuente" },
+    ],
+    defaults: { value: "21 días", label: "para que un hábito empiece a sentirse natural", note: "Referencia orientativa: varía según la persona" },
+  },
+  progress: {
+    label: "Barras de progreso",
+    group: "Datos y gráficos",
+    fields: [
+      { key: "items", label: "Barras (una por línea: Nombre: porcentaje)", multiline: true },
+      { key: "note", label: "Nota" },
+    ],
+    defaults: { items: "Constancia: 80\nFoco: 60\nDescanso: 45", note: "Ejemplo ilustrativo" },
+  },
+  donut: {
+    label: "Gráfico de torta",
+    group: "Datos y gráficos",
+    fields: [
+      { key: "items", label: "Partes (una por línea: Nombre: valor)", multiline: true },
+      { key: "center", label: "Texto del centro" },
+    ],
+    defaults: { items: "Lo urgente: 65\nLo importante: 35", center: "Tu semana" },
+  },
+  "line-chart": {
+    label: "Gráfico de líneas",
+    group: "Datos y gráficos",
+    fields: [
+      { key: "title", label: "Título" },
+      { key: "labels", label: "Etiquetas (separadas por coma)" },
+      { key: "values", label: "Valores (separados por coma)" },
+      { key: "note", label: "Nota" },
+    ],
+    defaults: { title: "Tu avance", labels: "S1, S2, S3, S4, S5, S6", values: "10, 14, 13, 22, 28, 35", note: "Datos ilustrativos" },
+  },
+  "habit-tracker": {
+    label: "Seguimiento de hábito",
+    group: "Datos y gráficos",
+    fields: [
+      { key: "habit", label: "Hábito" },
+      { key: "done", label: "Días cumplidos" },
+      { key: "total", label: "Días totales (7 a 35)" },
+    ],
+    defaults: { habit: "Leer 10 minutos", done: "18", total: "28" },
+  },
+  timeline: {
+    label: "Línea de tiempo",
+    group: "Diagramas",
+    fields: [{ key: "items", label: "Hitos (uno por línea: Momento: descripción)", multiline: true }],
+    defaults: { items: "Mes 1: Empecé sin plan\nMes 3: Primer resultado\nMes 6: Rutina que se sostiene" },
+  },
+  pyramid: {
+    label: "Pirámide",
+    group: "Diagramas",
+    fields: [{ key: "items", label: "Niveles de arriba hacia abajo (uno por línea)", multiline: true }],
+    defaults: { items: "Resultados\nHábitos\nIdentidad" },
+  },
+  funnel: {
+    label: "Embudo",
+    group: "Diagramas",
+    fields: [{ key: "items", label: "Etapas de arriba hacia abajo (una por línea)", multiline: true }],
+    defaults: { items: "Te ven\nTe siguen\nTe escriben\nTe eligen" },
+  },
+  matrix: {
+    label: "Matriz 2×2",
+    group: "Diagramas",
+    fields: [
+      { key: "xLabel", label: "Eje horizontal" },
+      { key: "yLabel", label: "Eje vertical" },
+      { key: "tl", label: "Arriba a la izquierda" },
+      { key: "tr", label: "Arriba a la derecha" },
+      { key: "bl", label: "Abajo a la izquierda" },
+      { key: "br", label: "Abajo a la derecha" },
+    ],
+    defaults: { xLabel: "Urgencia →", yLabel: "Importancia →", tl: "Planificalo", tr: "Hacelo ya", bl: "Eliminalo", br: "Delegalo" },
+  },
+  cycle: {
+    label: "Ciclo",
+    group: "Diagramas",
+    fields: [
+      { key: "items", label: "Etapas (una por línea, 3 a 6)", multiline: true },
+      { key: "center", label: "Centro (opcional)" },
+    ],
+    defaults: { items: "Hacer\nMedir\nAprender\nAjustar", center: "Mejora continua" },
+  },
+  venn: {
+    label: "Diagrama de Venn",
+    group: "Diagramas",
+    fields: [
+      { key: "a", label: "Círculo izquierdo" },
+      { key: "b", label: "Círculo derecho" },
+      { key: "center", label: "Intersección" },
+    ],
+    defaults: { a: "Lo que te gusta", b: "Lo que sabés hacer", center: "Tu foco" },
+  },
+  "do-dont": {
+    label: "Sí / No",
+    group: "Listas y comparaciones",
+    fields: [
+      { key: "doTitle", label: "Título de lo que sí" },
+      { key: "do", label: "Lo que sí (uno por línea)", multiline: true },
+      { key: "dontTitle", label: "Título de lo que no" },
+      { key: "dont", label: "Lo que no (uno por línea)", multiline: true },
+    ],
+    defaults: { doTitle: "Hacé", do: "Empezá chico\nRepetí todos los días\nMedí tu avance", dontTitle: "Evitá", dont: "Esperar ganas\nCambiar todo junto\nCompararte" },
+  },
+  "myth-fact": {
+    label: "Mito vs. realidad",
+    group: "Listas y comparaciones",
+    fields: [
+      { key: "myth", label: "Mito", multiline: true },
+      { key: "fact", label: "Realidad", multiline: true },
+    ],
+    defaults: { myth: "Necesitás motivación para empezar.", fact: "La motivación suele aparecer después de empezar." },
+  },
+  table: {
+    label: "Tabla",
+    group: "Listas y comparaciones",
+    fields: [{ key: "rows", label: "Filas (una por línea, columnas separadas con |; la primera es el encabezado)", multiline: true }],
+    defaults: { rows: "| Antes | Ahora\nRutina | Ninguna | 20 min por día\nFoco | Disperso | Una meta\nResultado | Irregular | Constante" },
+  },
+  "sticky-notes": {
+    label: "Notas adhesivas",
+    group: "Listas y comparaciones",
+    fields: [{ key: "items", label: "Notas (una por línea, hasta 6)", multiline: true }],
+    defaults: { items: "Dormir bien\nMoverme 30 min\nLeer 10 páginas\nAgradecer algo" },
+  },
+  post: {
+    label: "Publicación de red social",
+    group: "Interfaces y mockups",
+    fields: [
+      { key: "name", label: "Nombre" },
+      { key: "handle", label: "Usuario" },
+      { key: "text", label: "Texto", multiline: true },
+      { key: "likes", label: "Me gusta" },
+      { key: "comments", label: "Comentarios" },
+    ],
+    defaults: { name: "Tu nombre", handle: "@tucuenta", text: "Nadie habla de lo aburrido que es ser constante. Y es justamente lo que funciona.", likes: "1.204", comments: "87" },
+  },
+  notifications: {
+    label: "Notificaciones",
+    group: "Interfaces y mockups",
+    fields: [
+      { key: "app", label: "Nombre de la app" },
+      { key: "items", label: "Notificaciones (una por línea)", multiline: true },
+    ],
+    defaults: { app: "Tu cuenta", items: "Nuevo mensaje: «¿Cómo empiezo?»\n12 personas guardaron tu publicación\nTenés 5 seguidores nuevos" },
+  },
+  polaroid: {
+    label: "Foto estilo polaroid",
+    group: "Imágenes",
+    usesImage: true,
+    fields: [{ key: "caption", label: "Texto escrito abajo" }],
+    defaults: { caption: "Día 1" },
   },
   "store-contrast": {
     label: "Local vacío vs. lleno",

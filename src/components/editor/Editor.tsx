@@ -4,7 +4,7 @@ import type { Project } from "@/lib/types";
 import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
 import { chooseCategory, rename, setPlan, setStage } from "@/lib/projectOps";
-import { GENERATORS, getGenerator } from "@/lib/content/providers";
+import { getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
 import { BriefIntro } from "./BriefIntro";
@@ -16,6 +16,8 @@ import { IconCheck, IconDownload, IconFolder, IconRedo, IconSparkle, IconUndo } 
 import { UiAccentPicker } from "./UiAccentPicker";
 import { ExportDialog } from "./ExportDialog";
 import { ProjectsDialog } from "./ProjectsDialog";
+import { AiSettingsDialog } from "./AiSettingsDialog";
+import { aiConfigured } from "@/lib/ai/settings";
 
 type MobileTab = "config" | "canvas" | "inspect";
 
@@ -26,7 +28,12 @@ export function Editor({ initial }: { initial: Project }) {
   const { project, apply, undo, redo, canUndo, canRedo, load } = store;
   const [tab, setTab] = useState<MobileTab>("config");
   const [busy, setBusy] = useState(false);
-  const generator = getGenerator(GENERATORS[0].id);
+  // Fuente de contenido: plantillas (gratis) o IA (si el usuario cargó su clave).
+  const [aiReady, setAiReady] = useState(() => aiConfigured());
+  const [aiOpen, setAiOpen] = useState(false);
+  const [source, setSource] = useState<"templates" | "ai">(() => (aiConfigured() ? "ai" : "templates"));
+  const generator = getGenerator(aiReady && source === "ai" ? "ai" : "templates");
+  const [proposeError, setProposeError] = useState("");
   const [selected, setSelected] = useState("");
   const [exporting, setExporting] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
@@ -107,10 +114,13 @@ export function Editor({ initial }: { initial: Project }) {
     if (!project.brief.category) return;
     if (project.slides.length && !confirm("Esto reemplaza los slides actuales por una propuesta nueva. ¿Seguimos? (Podés deshacer)")) return;
     setBusy(true);
+    setProposeError("");
     try {
       const slides = await generator.generatePlan({ brief: project.brief, count: project.slideCount, imageStyle: project.design.imageStyle });
       apply(setPlan(slides));
       setTab("canvas");
+    } catch (e) {
+      setProposeError(e instanceof Error ? e.message : "No se pudo armar la propuesta.");
     } finally {
       setBusy(false);
     }
@@ -229,6 +239,14 @@ export function Editor({ initial }: { initial: Project }) {
           <Button variant="ghost" className="px-2" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
             <IconRedo />
           </Button>
+          <Button
+            variant="ghost"
+            className={`px-2 text-xs ${aiReady ? "text-accent" : ""}`}
+            onClick={() => setAiOpen(true)}
+            title={aiReady ? "IA activada con tu clave" : "Activar IA (opcional, con tu clave)"}
+          >
+            <IconSparkle /> <span className="hidden md:inline">IA</span>
+          </Button>
           <UiAccentPicker />
           <Button
             variant="primary"
@@ -245,6 +263,16 @@ export function Editor({ initial }: { initial: Project }) {
         <div role="alert" className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-center text-xs text-red-200">
           {save.message}
         </div>
+      )}
+      {aiOpen && (
+        <AiSettingsDialog
+          onClose={() => {
+            setAiOpen(false);
+            const ready = aiConfigured();
+            setAiReady(ready);
+            if (ready) setSource("ai");
+          }}
+        />
       )}
       {showProjects && (
         <ProjectsDialog
@@ -292,11 +320,37 @@ export function Editor({ initial }: { initial: Project }) {
               disabled={busy || !project.brief.category}
               title={project.brief.category ? undefined : "Primero elegí el tipo de carrusel"}
             >
-              <IconSparkle /> {project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
+              <IconSparkle /> {busy ? (generator.id === "ai" ? "Escribiendo con IA…" : "Armando…") : project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
             </Button>
-            <p className="text-center text-[11px] leading-snug text-faint">
-              Fuente: <span className="text-muted">{generator.label}</span> · sin IA configurada
-            </p>
+            {aiReady ? (
+              <div className="flex rounded-xl border border-line bg-bg p-0.5 text-[11px]" role="radiogroup" aria-label="Fuente de la propuesta">
+                {(
+                  [
+                    ["templates", "Plantillas (gratis)"],
+                    ["ai", "IA (tu clave)"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === id}
+                    onClick={() => setSource(id)}
+                    className={`flex-1 rounded-lg py-1 transition ${source === id ? "bg-white/10 text-white" : "text-muted hover:text-white"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-[11px] leading-snug text-faint">
+                Con plantillas, gratis.{" "}
+                <button type="button" onClick={() => setAiOpen(true)} className="text-muted underline hover:text-white">
+                  Activar IA con tu clave
+                </button>
+              </p>
+            )}
+            {proposeError && <p className="rounded-lg bg-red-500/10 p-2 text-center text-[11px] text-red-300">{proposeError}</p>}
           </div>
         </aside>
 
@@ -324,7 +378,7 @@ export function Editor({ initial }: { initial: Project }) {
             className={`scroll-thin w-full shrink-0 overflow-y-auto border-l border-line bg-panel lg:block lg:w-[330px] ${tab === "inspect" ? "block" : "hidden"}`}
             aria-label="Edición del slide"
           >
-            <Inspector project={project} slide={selectedSlide} apply={apply} onSelect={setSelected} />
+            <Inspector project={project} slide={selectedSlide} apply={apply} onSelect={setSelected} onOpenAiSettings={() => setAiOpen(true)} />
           </aside>
         )}
       </div>
