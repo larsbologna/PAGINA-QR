@@ -12,7 +12,11 @@ npm run typecheck  # verificación de tipos
 npm run build      # compilación de producción (la misma que usa Vercel)
 ```
 
-Se despliega en Vercel sin configuración extra: importar el repositorio y aceptar los valores detectados (Next.js).
+**Link publicado:** https://larsbologna.github.io/PAGINA-QR/carousel-google-maps/
+
+Se publica solo en GitHub Pages con cada cambio en `main` (`.github/workflows/pages.yml`): compila una versión estática con `GITHUB_PAGES=1` y la sirve en `/PAGINA-QR/carousel-google-maps/`. La raíz `/PAGINA-QR/` sigue siendo la redirección de los QR impresos de ReseñaQR. En GitHub Pages no existe el guardado en `public/export` (las imágenes se descargan con el navegador).
+
+También se puede desplegar en Vercel sin configuración extra.
 
 ## Cómo se usa
 
@@ -64,4 +68,4 @@ No hay ninguna API de IA configurada: la propuesta se arma con plantillas a part
 
 ## Proyecto anterior (ReseñaQR)
 
-El código de ReseñaQR quedó en la rama `resenaqr-archivo`. En este proyecto solo se conserva `web/redirect` y `.github/workflows/pages.yml`: la redirección de GitHub Pages que mantiene funcionando los QR impresos. No borrarlos.
+El código de ReseñaQR quedó en la rama `resenaqr-archivo`. En este proyecto solo se conserva `web/redirect`, que `.github/workflows/pages.yml` publica en la raíz de GitHub Pages: es la redirección que mantiene funcionando los QR impresos. No borrarla.
