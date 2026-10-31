@@ -1,7 +1,7 @@
 // Operaciones puras sobre un proyecto. El editor las usa a través del store, que se
 // encarga del historial (deshacer / rehacer).
 import type { ContentBrief, ContentCategory, DesignConfig, FormatId, Project, Slide } from "./types";
-import { designFor, isStockDesign } from "./content/categoryDesigns";
+import { designFor, isStockDesign, lookFor } from "./content/categoryDesigns";
 import { buildSlide } from "./content/templateGenerator";
 import { clampCount } from "./content/narrative";
 import { uid } from "./ids";
@@ -28,6 +28,16 @@ export const rename = (name: string): Recipe => (p) => ({ ...p, name });
 
 /** Reemplaza los slides por una propuesta nueva y pasa a la etapa de revisión. */
 export const setPlan = (slides: Slide[]): Recipe => (p) => ({ ...p, slides, slideCount: slides.length, stage: "plan" });
+
+/**
+ * Propuesta versión N: cambia los slides y, si el diseño no fue personalizado, también
+ * pasa al diseño de esa versión. Todo en un solo paso para poder deshacerlo junto.
+ */
+export const applyProposal = (slides: Slide[], version: number): Recipe => (p) => {
+  const category = p.brief.category || "negocio";
+  const design = isStockDesign(p.design) ? lookFor(category, version).design : p.design;
+  return { ...p, slides, slideCount: slides.length, stage: "plan", proposalVersion: version, design };
+};
 
 export const setStage = (stage: Project["stage"]): Recipe => (p) => ({ ...p, stage });
 

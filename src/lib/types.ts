@@ -143,4 +143,6 @@ export interface Project {
   format: FormatId;
   slideCount: number;
   slides: Slide[];
+  /** Cuántas veces se volvió a proponer (cada versión cambia diseño, visuales y textos). */
+  proposalVersion?: number;
 }

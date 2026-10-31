@@ -4,6 +4,10 @@ export interface PlanRequest {
   brief: ContentBrief;
   count: number;
   imageStyle: ImageStyle;
+  /** Número de versión: 0 la primera vez; cada «proponer de nuevo» suma uno y cambia el enfoque. */
+  version?: number;
+  /** Títulos de la propuesta anterior, para no repetirlos. */
+  previousTitles?: string[];
 }
 
 /**

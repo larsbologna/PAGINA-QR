@@ -1,9 +1,11 @@
-import type { ContentBrief, ImageStyle, Slide, SlideRole, Tone } from "../types";
+import type { ContentBrief, ContentCategory, ImageStyle, Slide, SlideRole, Tone } from "../types";
 import type { ContentGenerator, PlanRequest } from "./generator";
 import { structureFor } from "./narrative";
 import { makeVisual, suggestVisual } from "../visuals";
 import { uid } from "../ids";
 import { personalSlide } from "./personalCopy";
+import { altCopy, EXTRA_TIPS } from "./altCopy";
+import { varyVisual } from "./variations";
 
 // Generación sin IA: arma la estructura con frases de plantilla a partir de lo que
 // cargaste en el brief. Es un punto de partida para editar, no texto final.
@@ -146,7 +148,36 @@ function fieldsFrom(brief: ContentBrief): Fields {
   };
 }
 
-export function buildSlide(role: SlideRole, brief: ContentBrief, imageStyle: ImageStyle, tipIndex = 0): Slide {
+/**
+ * Slide de la versión `version` de la propuesta: la 0 es la base; las siguientes
+ * cambian títulos, consejos y visuales (ver altCopy.ts y variations.ts).
+ */
+export function buildSlide(role: SlideRole, brief: ContentBrief, imageStyle: ImageStyle, tipIndex = 0, version = 0): Slide {
+  const base = buildBaseSlide(role, brief, imageStyle, tipIndex);
+  if (!version) return base;
+  const f = fieldsFrom(brief);
+  const category = brief.category || "negocio";
+  const text = { topic: f.topic, name: f.business, audience: f.audience, problem: f.problem, benefit: f.benefit, offer: f.offer, cta: f.cta };
+  const slide: Slide = { ...base, visual: { ...base.visual, props: { ...base.visual.props } } };
+  const alt = altCopy(category, role, text, version);
+  if (alt) {
+    slide.title = alt.title;
+    slide.subtitle = alt.subtitle;
+  }
+  // Consejos: si no son los del usuario, cada versión usa otros.
+  if (role === "tip" && extractTips(brief.extra).length <= tipIndex && version % 3 !== 0) {
+    const extra = EXTRA_TIPS[category];
+    const t = extra[(tipIndex + (version % 3) * 2) % extra.length];
+    const numbered = /^\d+\.\s/.test(base.title);
+    slide.title = numbered ? `${tipIndex + 1}. ${t.title}` : t.title;
+    if (slide.visual.kind === "quote") slide.visual.props.text = t.subtitle;
+    else slide.subtitle = t.subtitle;
+  }
+  slide.visual = varyVisual(slide.visual, version, { category, role, tipIndex });
+  return slide;
+}
+
+function buildBaseSlide(role: SlideRole, brief: ContentBrief, imageStyle: ImageStyle, tipIndex: number): Slide {
   const f = fieldsFrom(brief);
   if (brief.category && brief.category !== "negocio") {
     const p = personalSlide(
@@ -169,9 +200,26 @@ export function buildSlide(role: SlideRole, brief: ContentBrief, imageStyle: Ima
   return { id: uid("s_"), role, ...copy, visual: makeVisual(kind, props), overrides: {} };
 }
 
-export function planFromTemplates({ brief, count, imageStyle }: PlanRequest): Slide[] {
+export function planFromTemplates({ brief, count, imageStyle, version = 0 }: PlanRequest): Slide[] {
   let tip = 0;
-  return structureFor(count).map((role) => buildSlide(role, brief, imageStyle, role === "tip" ? tip++ : 0));
+  const slides = structureFor(count).map((role) => buildSlide(role, brief, imageStyle, role === "tip" ? tip++ : 0, version));
+  return avoidRepeatedVisuals(slides, version, brief.category || "negocio");
+}
+
+/** Dos slides seguidos no repiten el mismo tipo de visual: se prueba otra variante o se deja sin visual. */
+function avoidRepeatedVisuals(slides: Slide[], version: number, category: ContentCategory): Slide[] {
+  let tipIndex = 0;
+  return slides.reduce<Slide[]>((out, slide) => {
+    const prev = out[out.length - 1];
+    const ti = slide.role === "tip" ? tipIndex++ : 0;
+    // Las fotos pueden repetirse: cada una es una imagen distinta del usuario.
+    if (!prev || ["none", "cta-button", "photo"].includes(slide.visual.kind) || slide.visual.kind !== prev.visual.kind) return [...out, slide];
+    for (const shift of [1, 2]) {
+      const alt = varyVisual(slide.visual, version + shift, { category, role: slide.role, tipIndex: ti });
+      if (alt.kind !== prev.visual.kind) return [...out, { ...slide, visual: alt }];
+    }
+    return [...out, { ...slide, visual: makeVisual("none") }];
+  }, []);
 }
 
 export const templateGenerator: ContentGenerator = {

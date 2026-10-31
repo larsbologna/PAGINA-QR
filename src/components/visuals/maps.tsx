@@ -230,13 +230,13 @@ export function MapsCompareVisual({ p, t }: VisualProps) {
   const a = Number(p.aRating.replace(",", ".")) || 0;
   const b = Number(p.bRating.replace(",", ".")) || 0;
   return (
-    <FitBox w={980} h={600}>
-      <div style={{ position: "absolute", left: 0, right: 0, top: 50, display: "flex", gap: 36 }}>
+    <FitBox w={980} h={660}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: 110, display: "flex", gap: 36 }}>
         <PlaceCard name={p.aName} rating={a} count={p.aCount} category={p.category} t={t} highlight={false} art={2} />
         <PlaceCard name={p.bName} rating={b} count={p.bCount} category={p.category} t={t} highlight art={0} />
       </div>
       {/* flecha hacia el negocio B */}
-      <svg width="240" height="120" viewBox="0 0 240 120" style={{ position: "absolute", right: 140, top: -40 }}>
+      <svg width="240" height="120" viewBox="0 0 240 120" style={{ position: "absolute", right: 140, top: 4 }}>
         <path d="M10 100 C 70 10, 160 0, 214 52" stroke={t.accent} strokeWidth="9" fill="none" strokeLinecap="round" />
         <path d="M192 30 L222 60 L182 68" stroke={t.accent} strokeWidth="9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -492,8 +492,11 @@ export function WhatsappChatVisual({ p, t, d3 }: VisualProps) {
     { me: true, text: p.m3, link: true },
   ].filter((m) => m.text);
   const ink = "#e9edef";
+  // Alto del teléfono según el largo de los mensajes (unas 30 letras por renglón).
+  const bodyH = msgs.reduce((h, m) => h + 76 + Math.ceil(m.text.length / 30) * 38 + (m.link ? 110 : 0), 68);
+  const H = Math.max(620, 120 + bodyH + 40);
   return (
-    <FitBox w={700} h={800}>
+    <FitBox w={700} h={H}>
       <div
         style={{
           position: "absolute",
@@ -571,8 +574,8 @@ export function PhotoReviewsVisual({ p, t, image }: VisualProps) {
   const reviews = [p.r1, p.r2, p.r3, p.r4];
   const names = ["Sofi R.", "Nico P.", "Carla V.", "Juan M."];
   return (
-    <FitBox w={980} h={800}>
-      <div style={{ position: "absolute", inset: "0 0 40px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 26, fontFamily: t.bodyFamily }}>
+    <FitBox w={1020} h={860}>
+      <div style={{ position: "absolute", inset: "24px 20px 64px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 26, fontFamily: t.bodyFamily }}>
         {reviews.map((r, i) => (
           <div key={i} style={{ ...cardStyle(t, { borderRadius: 28, overflow: "hidden" }), display: "flex", flexDirection: "column", transform: `rotate(${[-1.2, 1, 0.8, -0.9][i]}deg)` }}>
             <div style={{ height: 210, overflow: "hidden" }}>

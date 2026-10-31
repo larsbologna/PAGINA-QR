@@ -8,6 +8,7 @@ import { VISUALS, makeVisual } from "../visuals";
 import { DEFAULT_ICONS } from "../defaultIcons";
 import { uid } from "../ids";
 import { askJson, AiError } from "./claude";
+import { variationName } from "../content/variations";
 
 // Visuales que la IA puede elegir (los que se completan bien solo con texto).
 const AI_VISUALS = [
@@ -160,6 +161,11 @@ Brief:
 ${fieldLines || "- (sin datos: proponé algo coherente con el tipo de carrusel)"}
 ${b.extra ? `\nInstrucciones adicionales del usuario:\n${b.extra}` : ""}
 
+${
+  req.version && req.previousTitles?.length
+    ? `\nEsta es la versión ${req.version + 1}. Tiene que ser claramente distinta de la anterior: otro ángulo, otros ejemplos, otras frases y otros visuales. No repitas estos títulos ni sus ideas:\n${req.previousTitles.map((t) => `- ${t}`).join("\n")}\nPreferí esta vez visuales del estilo «${variationName(req.version)}».\n`
+    : ""
+}
 Escribí exactamente ${roles.length} slides, en este orden de papeles:
 ${roles.map((r: SlideRole, i) => `${i + 1}. ${r} — ${cat.roles[r].label}: ${cat.roles[r].purpose}`).join("\n")}`;
 
