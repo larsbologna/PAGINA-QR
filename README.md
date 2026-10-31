@@ -10,7 +10,10 @@ npm run dev        # http://localhost:3000/carousel-google-maps
 npm test           # pruebas unitarias
 npm run typecheck  # verificación de tipos
 npm run build      # compilación de producción (la misma que usa Vercel)
+npm run test:rules # reglas de seguridad de las cuentas (emulador de Firestore; requiere Java)
 ```
+
+La marca (nombre, frase y contacto que ven tus clientes) se cambia en `src/config/brand.ts`.
 
 **Link publicado:** https://larsbologna.github.io/PAGINA-QR/carousel-google-maps/
 
@@ -32,9 +35,47 @@ En los textos, `*palabra*` se resalta con el color de acento.
 
 ## Proyectos
 
-Se guardan solos en el navegador (localStorage), sin base de datos. Desde **Proyectos**: nuevo, abrir, duplicar, renombrar, eliminar, descargar copia `.json` e importar. Al volver se abre el último proyecto. En **Diseño → Mis diseños** se guardan combinaciones de colores, tipografías y tamaños para reutilizar.
+Se guardan solos: en el navegador (sin cuentas) o en la nube de cada cliente (con cuentas). Con cuentas, si en ese navegador había proyectos guardados de antes, **Proyectos** ofrece pasarlos a la cuenta. Desde **Proyectos**: nuevo, abrir, duplicar, renombrar, eliminar, descargar copia `.json` e importar. Al volver se abre el último proyecto. En **Diseño → Mis diseños** se guardan combinaciones de colores, tipografías y tamaños para reutilizar.
 
 La primera vez se precarga el ejemplo **"Cómo las reseñas de Google Maps llenan tu local"** (10 slides, negocios). Plantillas disponibles: ese ejemplo y **"Lo que nadie te dice sobre la constancia"** (7 slides, crecimiento personal).
+
+## Visuales
+
+Más de 40 visuales en una galería con vista previa (botón «Cambiar visual» en el panel del slide): datos y gráficos, diagramas, listas y comparaciones, interfaces y mockups, imágenes, Google Maps y personalizados. Además:
+
+- **Bloques con íconos:** armás tu propio visual con hasta 8 tarjetas (ícono, título y texto), en grilla, fila, columna o destacado, con flechas o numeración.
+- **Más de 8000 íconos** (Lucide y Tabler) con búsqueda en español, y emojis.
+- **Dibujo propio:** pegá o subí un SVG hecho en cualquier programa, o pedíselo a la IA describiéndolo.
+
+Todo SVG que no escribimos nosotros (IA, importado o dentro de un `.json`) se sanea antes de dibujarse.
+
+## IA opcional (cada usuario con su clave)
+
+Sin IA todo funciona gratis. Con una clave de Anthropic (console.anthropic.com → API Keys), desde el botón **IA**:
+
+- **Propuesta con IA:** escribe el carrusel completo según el tipo, el brief y el tono, eligiendo visuales y completándolos.
+- **Dibujos a pedido:** en el visual «Dibujo propio», describí lo que querés y lo dibuja con los colores del slide.
+
+La clave se guarda solo en ese navegador y se envía únicamente a Anthropic; el uso se cobra en la cuenta de quien la carga. Modelo por defecto: Claude Opus 5.5 (se puede elegir Sonnet 5.5 o Haiku 5.5, más económicos).
+
+## Cuentas de clientes
+
+Sin configurar nada, la herramienta funciona sin cuentas y cada navegador guarda sus proyectos. Para venderla con una cuenta por cliente (proyectos en la nube, separados por cuenta):
+
+1. **Firebase (gratis):** en https://console.firebase.google.com creá un proyecto nuevo.
+2. **Authentication → Método de acceso:** habilitá **Correo electrónico/contraseña**.
+3. **Firestore Database → Crear base de datos** (modo producción). En la pestaña **Reglas**, pegá el contenido de `firestore.rules` y tocá **Publicar**.
+4. **Configuración del proyecto → Tus apps → Web (</>)**: registrá una app y copiá `apiKey`, `authDomain`, `projectId` y `appId`.
+5. **GitHub → Settings → Secrets and variables → Actions → Variables:** creá `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID` y `NEXT_PUBLIC_FIREBASE_APP_ID` con esos valores. Volvé a publicar (Actions → GitHub Pages → Run workflow). En local, copiá `.env.example` como `.env.local`.
+6. **Authentication → Configuración → Dominios autorizados:** agregá el dominio donde está publicada (por ejemplo `larsbologna.github.io`).
+7. **Tu usuario de administrador:** en Authentication → Users → **Agregar usuario** (tu email y contraseña). Copiá su **UID**, andá a Firestore → **Iniciar colección** `cs_admins` → ID del documento = ese UID → un campo `createdAt` (number) con `1`.
+8. Entrá a la herramienta con ese usuario y tocá **Habilitar mi cuenta de administrador**.
+
+Desde el menú de tu cuenta (círculo arriba a la derecha) → **Administrar clientes**: das de alta a cada cliente (nombre, email, contraseña inicial y una nota, por ejemplo «Pago único 31/10»), copiás el mensaje con sus datos de acceso para mandárselo, y podés pausar, reactivar o enviar un correo para cambiar la contraseña. Un cliente pausado no puede entrar. Ni vos ni otros clientes ven sus proyectos.
+
+Las reglas de `firestore.rules` son las que garantizan todo esto en el servidor (están probadas en `tests/rules.test.ts`).
+
+**Hosting para vender:** GitHub Pages no admite uso comercial. Para vender, publicá la misma web en Vercel, Netlify o Firebase Hosting (todos con plan gratuito que lo permite) y agregá ese dominio en el paso 6.
 
 ## Exportación
 
@@ -51,20 +92,21 @@ La primera vez se precarga el ejemplo **"Cómo las reseñas de Google Maps llena
 | `src/lib/formats.ts` | Formatos y márgenes de seguridad (50 px laterales, 180 px arriba y abajo). |
 | `src/lib/content/` | Estructura narrativa y generación de contenido. |
 | `src/lib/projectOps.ts`, `src/lib/store.ts` | Operaciones sobre el proyecto e historial. |
-| `src/lib/storage/` | Persistencia (interfaces + implementación localStorage). |
+| `src/lib/storage/` | Persistencia: navegador (localStorage) o nube (Firestore, por cuenta). |
+| `src/lib/firebase/`, `src/components/auth/` | Cuentas: ingreso, sesión, panel de clientes. |
+| `src/lib/ai/` | IA opcional con la clave del usuario. |
+| `src/lib/icons.ts`, `src/lib/sanitize.ts` | Biblioteca de íconos y saneamiento de SVG. |
+| `src/config/` | Marca y conexión con Firebase. |
+| `firestore.rules`, `tests/rules.test.ts` | Reglas de seguridad y sus pruebas. |
 | `src/lib/export/` | Captura PNG, ZIP y descargas. |
 | `src/components/slide/` | `<Slide number={...} />` a tamaño real, decoraciones y ajuste automático del texto. |
-| `src/components/visuals/` | Visuales en SVG/CSS: generales y de Google Maps. |
+| `src/components/visuals/` | Visuales en SVG/CSS: generales, biblioteca ampliada y Google Maps. |
 | `src/components/editor/` | Interfaz del editor. |
 | `src/data/templates/` | Plantillas precargadas. |
 
-## Contenido sin IA
+## Fuentes de contenido
 
-No hay ninguna API de IA configurada: la propuesta se arma con plantillas a partir del brief, y la interfaz lo indica. Para sumar IA, implementar `ContentGenerator` (`src/lib/content/generator.ts`), idealmente llamando a una ruta del servidor que tenga la clave en una variable de entorno, y registrarlo en `src/lib/content/providers.ts`.
-
-## Almacenamiento en la nube (a futuro)
-
-`src/lib/storage/types.ts` define `ProjectRepository` y `PresetRepository`. Para guardar en la nube, implementarlas contra una API y cambiar las instancias en `src/lib/storage/index.ts`.
+`ContentGenerator` (`src/lib/content/generator.ts`) tiene dos implementaciones registradas en `src/lib/content/providers.ts`: plantillas (gratis, sin conexión) e IA (con la clave del usuario).
 
 ## Proyecto anterior (ReseñaQR)
 

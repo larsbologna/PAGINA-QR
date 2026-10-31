@@ -18,12 +18,19 @@ import { ExportDialog } from "./ExportDialog";
 import { ProjectsDialog } from "./ProjectsDialog";
 import { AiSettingsDialog } from "./AiSettingsDialog";
 import { aiConfigured } from "@/lib/ai/settings";
+import type { Session } from "@/lib/firebase/accounts";
+import dynamic from "next/dynamic";
+import { BRAND } from "@/config/brand";
 
 type MobileTab = "config" | "canvas" | "inspect";
 
+// Firebase solo se carga si hay cuentas (sin cuentas, la página no lo descarga).
+const AccountMenu = dynamic(() => import("@/components/auth/AccountMenu").then((m) => m.AccountMenu), { ssr: false });
+const AdminDialog = dynamic(() => import("@/components/auth/AdminDialog").then((m) => m.AdminDialog), { ssr: false });
+
 type SaveState = { kind: "saved" } | { kind: "pending" } | { kind: "error"; message: string };
 
-export function Editor({ initial }: { initial: Project }) {
+export function Editor({ initial, session }: { initial: Project; session?: Session }) {
   const store = useProjectStore(() => initial);
   const { project, apply, undo, redo, canUndo, canRedo, load } = store;
   const [tab, setTab] = useState<MobileTab>("config");
@@ -37,6 +44,7 @@ export function Editor({ initial }: { initial: Project }) {
   const [selected, setSelected] = useState("");
   const [exporting, setExporting] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [save, setSave] = useState<SaveState>({ kind: "saved" });
 
   // ——— Guardado automático (y manual con Ctrl/Cmd+S o el botón) ———
@@ -168,7 +176,7 @@ export function Editor({ initial }: { initial: Project }) {
               <path d="M17 7v10M21 9v6" />
             </svg>
           </span>
-          <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">Carrusel Studio</span>
+          <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">{BRAND.name}</span>
         </div>
 
         <Button variant="outline" className="px-2 text-xs sm:px-2.5" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
@@ -259,6 +267,7 @@ export function Editor({ initial }: { initial: Project }) {
           >
             <IconDownload /> <span className="hidden xl:inline">EXPORTAR A PNG</span>
           </Button>
+          {session && <AccountMenu session={session} onOpenAdmin={() => setShowAdmin(true)} beforeLogout={flush} />}
         </div>
       </header>
       {save.kind === "error" && (
@@ -276,6 +285,7 @@ export function Editor({ initial }: { initial: Project }) {
           }}
         />
       )}
+      {showAdmin && session && <AdminDialog adminUid={session.user.uid} onClose={() => setShowAdmin(false)} />}
       {showProjects && (
         <ProjectsDialog
           current={project}

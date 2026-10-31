@@ -4,6 +4,7 @@ import type { Project } from "@/lib/types";
 import { projects } from "@/lib/storage";
 import { createGoogleMapsProject } from "@/data/templates/googleMaps";
 import { Editor } from "./Editor";
+import type { Session } from "@/lib/firebase/accounts";
 
 /** Retoma el último proyecto abierto; la primera vez deja precargada la plantilla de ejemplo. */
 async function initialProject(): Promise<Project> {
@@ -21,11 +22,11 @@ async function initialProject(): Promise<Project> {
   return sample;
 }
 
-export function EditorBoot() {
+export function EditorBoot({ session }: { session?: Session }) {
   const [project, setProject] = useState<Project | null>(null);
   useEffect(() => {
     initialProject().then(setProject);
   }, []);
-  if (!project) return <div className="grid h-dvh place-items-center bg-bg text-sm text-muted">Abriendo tu último proyecto…</div>;
-  return <Editor initial={project} />;
+  if (!project) return <div className="grid h-dvh place-items-center bg-bg text-sm text-muted">Abriendo tus proyectos…</div>;
+  return <Editor initial={project} session={session} />;
 }
