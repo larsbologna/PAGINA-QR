@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Reglas de Carrusel Studio. Pegalas en Firebase → Firestore Database → Reglas → Publicar.
+//
+// cs_admins/{uid}                  quién administra (se crea a mano o con tools/crear-admin.mjs)
+// cs_accounts/{uid}                cuentas de clientes: solo el administrador las crea y habilita
+// cs_accounts/{uid}/projects/{id}  proyectos del cliente (solo él, y solo si su cuenta está activa)
+// cs_accounts/{uid}/assets/{id}    imágenes de sus proyectos
+// cs_accounts/{uid}/presets/{id}   sus diseños guardados
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/cs_admins/$(request.auth.uid));
+    }
+    function isOwnerActive(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && get(/databases/$(database)/documents/cs_accounts/$(uid)).data.active == true;
+    }
+    function validAccount() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'name', 'active', 'note', 'createdAt', 'updatedAt', 'createdBy'])
+        && d.email is string && d.email.size() <= 200
+        && d.name is string && d.name.size() <= 120
+        && d.active is bool
+        && d.note is string && d.note.size() <= 500
+        && d.createdAt is int && d.updatedAt is int
+        && d.createdBy is string;
+    }
+
+    match /cs_admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /cs_accounts/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && validAccount();
+      allow delete: if isAdmin();
+
+      match /projects/{projectId} {
+        allow read, delete: if isOwnerActive(uid);
+        allow create, update: if isOwnerActive(uid)
+          && request.resource.data.id == projectId
+          && request.resource.data.name is string
+          && request.resource.data.slides is list
+          && request.resource.data.slides.size() <= 10;
+      }
+
+      match /assets/{assetId} {
+        allow read, delete: if isOwnerActive(uid);
+        allow create: if isOwnerActive(uid)
+          && request.resource.data.keys().hasOnly(['data', 'createdAt'])
+          && request.resource.data.data is string
+          && request.resource.data.data.matches('^data:image/(png|jpeg|webp);base64,.*')
+          && request.resource.data.data.size() < 1000000;
+        allow update: if false;
+      }
+
+      match /presets/{presetId} {
+        allow read, delete: if isOwnerActive(uid);
+        allow create, update: if isOwnerActive(uid) && request.resource.data.name is string && request.resource.data.design is map;
+      }
+    }
+  }
+}

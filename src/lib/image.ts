@@ -18,8 +18,16 @@ export async function fileToDataUrl(file: File, maxSide = 1600): Promise<string>
     canvas.width = w;
     canvas.height = h;
     canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-    // PNG conserva transparencias (logos, recortes); el resto va en JPEG.
-    return file.type === "image/png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.86);
+    // PNG conserva transparencias (logos, recortes); el resto va en JPEG. Cada imagen
+    // queda por debajo de ~900 KB para poder guardarse en la nube.
+    let out = file.type === "image/png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.86);
+    let quality = 0.82;
+    while (out.length > 900_000 && quality > 0.4) {
+      out = canvas.toDataURL("image/jpeg", quality);
+      quality -= 0.12;
+    }
+    if (out.length > 900_000) throw new Error("La imagen es demasiado pesada. Probá con una más chica.");
+    return out;
   } finally {
     URL.revokeObjectURL(url);
   }

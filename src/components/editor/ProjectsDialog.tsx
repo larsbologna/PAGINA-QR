@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "@/lib/types";
-import { projects, normalizeProject, StorageFullError } from "@/lib/storage";
+import { localProjects, projects, normalizeProject, StorageFullError, usingCloud } from "@/lib/storage";
 import { createProject } from "@/lib/defaults";
 import { uid } from "@/lib/ids";
 import { slugify } from "@/lib/export/filenames";
@@ -52,6 +52,22 @@ export function ProjectsDialog({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const importInput = useRef<HTMLInputElement>(null);
+
+  // En una cuenta: proyectos que quedaron guardados solo en este navegador.
+  const [localOnly, setLocalOnly] = useState<Project[]>([]);
+  useEffect(() => {
+    if (!usingCloud()) return;
+    localProjects.list().then(setLocalOnly).catch(() => undefined);
+  }, []);
+
+  const importLocal = () =>
+    guard(async () => {
+      const cloudIds = new Set((await projects.list()).map((p) => p.id));
+      for (const p of localOnly) if (!cloudIds.has(p.id)) await projects.save(p);
+      for (const p of localOnly) await localProjects.remove(p.id);
+      setLocalOnly([]);
+      await refresh();
+    });
 
   const refresh = useCallback(async () => {
     await flush().catch(() => undefined);
@@ -175,6 +191,16 @@ export function ProjectsDialog({
         </div>
 
         {error && <p className="mx-5 mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+        {localOnly.length > 0 && (
+          <div className="mx-5 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 p-3 text-sm">
+            <span className="flex-1">
+              Hay {localOnly.length} {localOnly.length === 1 ? "proyecto guardado" : "proyectos guardados"} en este navegador, fuera de tu cuenta.
+            </span>
+            <Button variant="primary" onClick={importLocal}>
+              Pasarlos a mi cuenta
+            </Button>
+          </div>
+        )}
 
         <div className="scroll-thin flex-1 overflow-y-auto p-5">
           {list === null && <p className="text-sm text-muted">Cargando…</p>}

@@ -9,3 +9,8 @@ next-env.d.ts
 public/export/
 .DS_Store
 npm-debug.log*
+
+# Emuladores de Firebase
+firestore-debug.log
+firebase-debug.log
+ui-debug.log

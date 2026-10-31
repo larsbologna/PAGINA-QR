@@ -10,10 +10,11 @@ import "@fontsource/anton";
 import "@fontsource/bebas-neue";
 import "@fontsource/archivo-black";
 import "./globals.css";
+import { BRAND } from "@/config/brand";
 
 export const metadata: Metadata = {
-  title: "Carrusel Studio",
-  description: "Generador de carruseles para Instagram con exportación PNG.",
+  title: BRAND.name,
+  description: BRAND.tagline,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

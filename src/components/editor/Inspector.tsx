@@ -10,27 +10,32 @@ import { fileToDataUrl } from "@/lib/image";
 import { resolveTheme } from "@/components/slide/theme";
 import { Button, ColorInput, Section, Segmented, Select, Slider, TextArea, TextInput } from "@/components/ui/controls";
 import { ContrastBadge } from "@/components/ui/ContrastBadge";
+import { Visual } from "@/components/visuals/Visual";
+import { VisualPickerDialog } from "./VisualPicker";
+import { VisualFieldEditor } from "./VisualFields";
 import { IconAlignCenter, IconAlignLeft, IconAlignRight, IconCopy, IconEdit, IconLayers, IconLeft, IconPalette, IconRight, IconTrash } from "@/components/ui/icons";
 
 const ROLES = Object.keys(ROLE_INFO) as SlideRole[];
-const KINDS = Object.keys(VISUALS) as VisualKind[];
 
 export function Inspector({
   project,
   slide,
   apply,
   onSelect,
+  onOpenAiSettings,
 }: {
   project: Project;
   slide: Slide;
   apply: (r: Recipe, key?: string) => void;
   onSelect: (id: string) => void;
+  onOpenAiSettings: () => void;
 }) {
   const index = project.slides.findIndex((s) => s.id === slide.id);
   const roleInfo = categoryOf(project.brief).roles;
   const t = resolveTheme(project.design, slide);
   const fileInput = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState("");
+  const [picking, setPicking] = useState(false);
 
   const set = (patch: Partial<Slide>, key?: string) => apply(updateSlide(slide.id, patch), key ? `${slide.id}.${key}` : undefined);
   const setOverride = (patch: Partial<SlideOverrides>, key?: string) =>
@@ -113,18 +118,42 @@ export function Inspector({
       </Section>
 
       <Section title="Visual" icon={<IconLayers />}>
-        <Select<VisualKind>
-          label="Elemento visual"
-          value={slide.visual.kind}
-          onChange={(k) => apply(updateSlide(slide.id, (s) => ({ ...s, visual: { ...makeVisual(k), image: s.visual.image } })))}
-          options={KINDS.map((k) => ({ value: k, label: `${VISUALS[k].group === "Google Maps" ? "Maps · " : ""}${VISUALS[k].label}` }))}
-        />
-        {spec.fields.map((fld) =>
-          fld.multiline ? (
-            <TextArea key={fld.key} label={fld.label} rows={3} value={slide.visual.props[fld.key] ?? ""} onChange={(v) => setProp(fld.key, v)} />
-          ) : (
-            <TextInput key={fld.key} label={fld.label} value={slide.visual.props[fld.key] ?? ""} onChange={(v) => setProp(fld.key, v)} />
-          ),
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-muted">Elemento visual</div>
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            className="flex w-full items-center gap-3 rounded-xl border border-line bg-bg p-2 text-left transition hover:border-accent/60"
+          >
+            <span className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg" style={{ background: t.bg }}>
+              <span className="absolute inset-1.5">{slide.visual.kind !== "none" && <Visual visual={slide.visual} t={t} d3={false} />}</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-white">{spec.label}</span>
+              <span className="text-[11px] text-accent">Cambiar visual →</span>
+            </span>
+          </button>
+        </div>
+        {spec.fields.map((fld) => (
+          <VisualFieldEditor
+            key={fld.key}
+            field={fld}
+            value={slide.visual.props[fld.key] ?? ""}
+            onChange={(v) => setProp(fld.key, v)}
+            theme={t}
+            onOpenAiSettings={onOpenAiSettings}
+          />
+        ))}
+        {picking && (
+          <VisualPickerDialog
+            current={slide.visual.kind}
+            theme={t}
+            onClose={() => setPicking(false)}
+            onPick={(k: VisualKind) => {
+              apply(updateSlide(slide.id, (s) => ({ ...s, visual: { ...makeVisual(k), image: s.visual.image } })));
+              setPicking(false);
+            }}
+          />
         )}
         {spec.usesImage && (
           <div className="space-y-2">

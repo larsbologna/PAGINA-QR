@@ -4,7 +4,7 @@ import type { Project } from "@/lib/types";
 import { projects, StorageFullError } from "@/lib/storage";
 import { useProjectStore } from "@/lib/store";
 import { chooseCategory, rename, setPlan, setStage } from "@/lib/projectOps";
-import { GENERATORS, getGenerator } from "@/lib/content/providers";
+import { getGenerator } from "@/lib/content/providers";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlanView } from "./PlanView";
 import { BriefIntro } from "./BriefIntro";
@@ -16,20 +16,35 @@ import { IconCheck, IconDownload, IconFolder, IconRedo, IconSparkle, IconUndo } 
 import { UiAccentPicker } from "./UiAccentPicker";
 import { ExportDialog } from "./ExportDialog";
 import { ProjectsDialog } from "./ProjectsDialog";
+import { AiSettingsDialog } from "./AiSettingsDialog";
+import { aiConfigured } from "@/lib/ai/settings";
+import type { Session } from "@/lib/firebase/accounts";
+import dynamic from "next/dynamic";
+import { BRAND } from "@/config/brand";
 
 type MobileTab = "config" | "canvas" | "inspect";
 
+// Firebase solo se carga si hay cuentas (sin cuentas, la página no lo descarga).
+const AccountMenu = dynamic(() => import("@/components/auth/AccountMenu").then((m) => m.AccountMenu), { ssr: false });
+const AdminDialog = dynamic(() => import("@/components/auth/AdminDialog").then((m) => m.AdminDialog), { ssr: false });
+
 type SaveState = { kind: "saved" } | { kind: "pending" } | { kind: "error"; message: string };
 
-export function Editor({ initial }: { initial: Project }) {
+export function Editor({ initial, session }: { initial: Project; session?: Session }) {
   const store = useProjectStore(() => initial);
   const { project, apply, undo, redo, canUndo, canRedo, load } = store;
   const [tab, setTab] = useState<MobileTab>("config");
   const [busy, setBusy] = useState(false);
-  const generator = getGenerator(GENERATORS[0].id);
+  // Fuente de contenido: plantillas (gratis) o IA (si el usuario cargó su clave).
+  const [aiReady, setAiReady] = useState(() => aiConfigured());
+  const [aiOpen, setAiOpen] = useState(false);
+  const [source, setSource] = useState<"templates" | "ai">(() => (aiConfigured() ? "ai" : "templates"));
+  const generator = getGenerator(aiReady && source === "ai" ? "ai" : "templates");
+  const [proposeError, setProposeError] = useState("");
   const [selected, setSelected] = useState("");
   const [exporting, setExporting] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [save, setSave] = useState<SaveState>({ kind: "saved" });
 
   // ——— Guardado automático (y manual con Ctrl/Cmd+S o el botón) ———
@@ -107,10 +122,13 @@ export function Editor({ initial }: { initial: Project }) {
     if (!project.brief.category) return;
     if (project.slides.length && !confirm("Esto reemplaza los slides actuales por una propuesta nueva. ¿Seguimos? (Podés deshacer)")) return;
     setBusy(true);
+    setProposeError("");
     try {
       const slides = await generator.generatePlan({ brief: project.brief, count: project.slideCount, imageStyle: project.design.imageStyle });
       apply(setPlan(slides));
       setTab("canvas");
+    } catch (e) {
+      setProposeError(e instanceof Error ? e.message : "No se pudo armar la propuesta.");
     } finally {
       setBusy(false);
     }
@@ -150,7 +168,7 @@ export function Editor({ initial }: { initial: Project }) {
   return (
     <div className="flex h-dvh flex-col bg-bg text-white">
       {/* Barra superior */}
-      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1.5 border-b border-line bg-panel/80 px-3 backdrop-blur sm:gap-3 md:px-4">
+      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-panel/80 px-2 backdrop-blur sm:gap-3 sm:px-3 md:px-4">
         <div className="hidden items-center gap-2 sm:flex">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-ink shadow-[0_0_24px_-6px_var(--ui-accent)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -158,11 +176,11 @@ export function Editor({ initial }: { initial: Project }) {
               <path d="M17 7v10M21 9v6" />
             </svg>
           </span>
-          <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">Carrusel Studio</span>
+          <span className="hidden font-display text-[15px] font-bold tracking-tight xl:block">{BRAND.name}</span>
         </div>
 
-        <Button variant="outline" className="px-2.5 text-xs" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
-          <IconFolder /> <span className="hidden md:inline">Proyectos</span>
+        <Button variant="outline" className="px-2 text-xs sm:px-2.5" onClick={() => setShowProjects(true)} title="Abrir, duplicar, renombrar o eliminar proyectos">
+          <IconFolder /> <span className="hidden lg:inline">Proyectos</span>
         </Button>
 
         <input
@@ -205,7 +223,7 @@ export function Editor({ initial }: { initial: Project }) {
                 type="button"
                 disabled={!reachable}
                 onClick={() => apply(setStage(s.id))}
-                className={`flex items-center gap-2 rounded-full px-1.5 py-1 text-xs lg:px-3 transition disabled:opacity-30 ${
+                className={`flex items-center gap-2 rounded-full px-1 py-1 text-xs sm:px-1.5 lg:px-3 transition disabled:opacity-30 ${
                   project.stage === s.id ? "bg-white/10 text-white" : "text-muted hover:text-white"
                 }`}
               >
@@ -223,22 +241,33 @@ export function Editor({ initial }: { initial: Project }) {
         </nav>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" className="px-2" aria-label="Deshacer" title="Deshacer (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
+          <Button variant="ghost" className="px-1.5 sm:px-2" aria-label="Deshacer" title="Deshacer (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
             <IconUndo />
           </Button>
-          <Button variant="ghost" className="px-2" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
+          <Button variant="ghost" className="px-1.5 sm:px-2" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
             <IconRedo />
           </Button>
+          <span className="hidden min-[380px]:contents">
+          <Button
+              variant="ghost"
+              className={`px-2 text-xs ${aiReady ? "text-accent" : ""}`}
+              onClick={() => setAiOpen(true)}
+              title={aiReady ? "IA activada con tu clave" : "Activar IA (opcional, con tu clave)"}
+            >
+              <IconSparkle /> <span className="hidden lg:inline">IA</span>
+            </Button>
+          </span>
           <UiAccentPicker />
           <Button
             variant="primary"
-            className="ml-1 px-3 text-xs tracking-wide sm:ml-2 sm:px-4"
+            className="ml-0.5 px-2 text-xs tracking-wide sm:ml-2 sm:px-4"
             onClick={() => setExporting(true)}
             disabled={!project.slides.length}
             title={project.slides.length ? "Exportar los slides como PNG" : "Primero generá la estructura"}
           >
-            <IconDownload /> <span className="hidden sm:inline">EXPORTAR A PNG</span>
+            <IconDownload /> <span className="hidden xl:inline">EXPORTAR A PNG</span>
           </Button>
+          {session && <AccountMenu session={session} onOpenAdmin={() => setShowAdmin(true)} beforeLogout={flush} />}
         </div>
       </header>
       {save.kind === "error" && (
@@ -246,6 +275,17 @@ export function Editor({ initial }: { initial: Project }) {
           {save.message}
         </div>
       )}
+      {aiOpen && (
+        <AiSettingsDialog
+          onClose={() => {
+            setAiOpen(false);
+            const ready = aiConfigured();
+            setAiReady(ready);
+            if (ready) setSource("ai");
+          }}
+        />
+      )}
+      {showAdmin && session && <AdminDialog adminUid={session.user.uid} onClose={() => setShowAdmin(false)} />}
       {showProjects && (
         <ProjectsDialog
           current={project}
@@ -292,11 +332,37 @@ export function Editor({ initial }: { initial: Project }) {
               disabled={busy || !project.brief.category}
               title={project.brief.category ? undefined : "Primero elegí el tipo de carrusel"}
             >
-              <IconSparkle /> {project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
+              <IconSparkle /> {busy ? (generator.id === "ai" ? "Escribiendo con IA…" : "Armando…") : project.slides.length ? "Proponer estructura de nuevo" : "Proponer estructura"}
             </Button>
-            <p className="text-center text-[11px] leading-snug text-faint">
-              Fuente: <span className="text-muted">{generator.label}</span> · sin IA configurada
-            </p>
+            {aiReady ? (
+              <div className="flex rounded-xl border border-line bg-bg p-0.5 text-[11px]" role="radiogroup" aria-label="Fuente de la propuesta">
+                {(
+                  [
+                    ["templates", "Plantillas (gratis)"],
+                    ["ai", "IA (tu clave)"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === id}
+                    onClick={() => setSource(id)}
+                    className={`flex-1 rounded-lg py-1 transition ${source === id ? "bg-white/10 text-white" : "text-muted hover:text-white"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-[11px] leading-snug text-faint">
+                Con plantillas, gratis.{" "}
+                <button type="button" onClick={() => setAiOpen(true)} className="text-muted underline hover:text-white">
+                  Activar IA con tu clave
+                </button>
+              </p>
+            )}
+            {proposeError && <p className="rounded-lg bg-red-500/10 p-2 text-center text-[11px] text-red-300">{proposeError}</p>}
           </div>
         </aside>
 
@@ -324,7 +390,7 @@ export function Editor({ initial }: { initial: Project }) {
             className={`scroll-thin w-full shrink-0 overflow-y-auto border-l border-line bg-panel lg:block lg:w-[330px] ${tab === "inspect" ? "block" : "hidden"}`}
             aria-label="Edición del slide"
           >
-            <Inspector project={project} slide={selectedSlide} apply={apply} onSelect={setSelected} />
+            <Inspector project={project} slide={selectedSlide} apply={apply} onSelect={setSelected} onOpenAiSettings={() => setAiOpen(true)} />
           </aside>
         )}
       </div>

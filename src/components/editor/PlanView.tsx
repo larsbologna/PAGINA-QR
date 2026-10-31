@@ -5,7 +5,7 @@ import { deleteSlide, moveSlide, setStage, updateSlide } from "@/lib/projectOps"
 import { ROLE_INFO } from "@/lib/content/narrative";
 import { categoryOf } from "@/lib/content/categories";
 import { buildSlide } from "@/lib/content/templateGenerator";
-import { VISUALS, makeVisual } from "@/lib/visuals";
+import { VISUALS, VISUAL_GROUPS, makeVisual } from "@/lib/visuals";
 import { uid } from "@/lib/ids";
 import { ScaledSlide } from "@/components/slide/ScaledSlide";
 import { Button } from "@/components/ui/controls";
@@ -127,7 +127,7 @@ export function PlanView({
                   onChange={(e) => apply(updateSlide(s.id, { visual: makeVisual(e.target.value as VisualKind) }))}
                   className="cursor-pointer rounded-md border border-line bg-bg px-2 py-0.5 text-xs text-white/80 outline-none"
                 >
-                  {(["General", "Google Maps"] as const).map((g) => (
+                  {VISUAL_GROUPS.map((g) => (
                     <optgroup key={g} label={g}>
                       {VISUAL_KINDS.filter((k) => VISUALS[k].group === g).map((k) => (
                         <option key={k} value={k}>
